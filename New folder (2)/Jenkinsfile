@@ -1,0 +1,66 @@
+pipeline {
+    agent any
+
+    environment {
+        DEPLOY_SERVER = '192.168.1.181'
+        DEPLOY_USER   = 'kali'
+        DEPLOY_DIR    = '/opt/timetracker'
+        JAR_NAME      = 'employee-timetracker-1.0.0.jar'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git branch: 'master',
+                    url: 'https://github.com/dvgdsugdsauz/EmpolyeeTimeTracker.git'
+            }
+        }
+
+        stage('Build Backend') {
+            steps {
+                dir('employee-timetracker-backend') {
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('Build Frontend') {
+            steps {
+                dir('employee-timetracker') {
+                    sh 'npm install'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Deploy to Server') {
+            steps {
+                sshagent(credentials: ['deploy-server-ssh']) {
+
+                    // Create deploy directory on server
+                    sh "ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} 'mkdir -p ${DEPLOY_DIR}/frontend'"
+
+                    // Copy backend JAR
+                    sh "scp employee-timetracker-backend/target/${JAR_NAME} ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/"
+
+                    // Copy frontend build
+                    sh "scp -r employee-timetracker/dist/* ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/frontend/"
+
+                    // Copy deploy script and run it
+                    sh "scp deploy.sh ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/"
+                    sh "ssh ${DEPLOY_USER}@${DEPLOY_SERVER} 'chmod +x ${DEPLOY_DIR}/deploy.sh && ${DEPLOY_DIR}/deploy.sh'"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment successful!'
+        }
+        failure {
+            echo 'Deployment failed!'
+        }
+    }
+}
