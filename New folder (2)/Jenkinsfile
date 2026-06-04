@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        DEPLOY_SERVER = '192.168.1.181'
-        DEPLOY_USER   = 'kali'
+        DEPLOY_SERVER = '192.168.1.104'
+        DEPLOY_USER   = 'ubuntu'
         DEPLOY_DIR    = '/opt/timetracker'
         JAR_NAME      = 'employee-timetracker-1.0.0.jar'
     }
