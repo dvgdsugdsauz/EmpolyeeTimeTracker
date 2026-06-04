@@ -1,0 +1,32 @@
+# Frontend
+employee-timetracker/node_modules/
+employee-timetracker/dist/
+employee-timetracker/.env
+employee-timetracker/.env.local
+
+# Backend
+employee-timetracker-backend/target/
+employee-timetracker-backend/.mvn/
+employee-timetracker-backend/*.log
+
+# Root level junk
+node_modules/
+*.class
+*.log
+*.json
+migrate_mdb_to_postgres.py
+CreateDB.java
+CreateDB.class
+DBTest.java
+DBTest.class
+hs_err_pid*.log
+replay_pid*.log
+d:token_resp.json
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Claude
+.claude/

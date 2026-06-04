@@ -1,0 +1,206 @@
+package com.wilotus.timetracker.controller;
+
+import com.wilotus.timetracker.dto.PunchRequest;
+import com.wilotus.timetracker.entity.Device;
+import com.wilotus.timetracker.repository.DeviceRepository;
+import com.wilotus.timetracker.repository.EmployeeRepository;
+import com.wilotus.timetracker.service.AttendanceProcessingService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Optional;
+
+/**
+ * Receives attendance pushes from eSSL / ZKTeco devices using the
+ * ADMS (Attendance Data Management System) HTTP-push protocol.
+ *
+ * Device configuration:
+ *   Server address : 192.168.1.97
+ *   Port           : 8080
+ *   (no HTTPS, no password needed for basic ADMS push)
+ */
+@RestController
+@RequestMapping("/iclock")
+@RequiredArgsConstructor
+@Slf4j
+public class AdmsController {
+
+    private static final DateTimeFormatter[] FMTS = {
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
+        DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"),
+        DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"),
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"),
+    };
+
+    private final AttendanceProcessingService processingService;
+    private final DeviceRepository            deviceRepo;
+    private final EmployeeRepository          employeeRepo;
+    private final com.wilotus.timetracker.repository.AttendanceRawRepository rawRepo;
+
+    // ── Device heartbeat / registration ──────────────────────────────────────
+
+    @GetMapping({"/cdata", "/cdata.aspx"})
+    public String register(
+            @RequestParam(required = false) String SN,
+            @RequestParam(required = false) String options,
+            @RequestParam(required = false) String pushver,
+            @RequestParam(required = false) String language) {
+
+        log.info("ADMS heartbeat — SN={} options={}", SN, options);
+        long stamp = markConnected(SN);
+        return "GET OPTION FROM: " + (SN != null ? SN : "DEVICE") + "\r\n"
+             + "Stamp=" + stamp + "\r\n"
+             + "ATT LOG\r\n"
+             + "ATTLOG ATT\r\n"
+             + "Realtime=1\r\n"
+             + "Encrypt=None\r\n"
+             + "ServerVer=2.4.1\r\n"
+             + "PushProtVer=2.4.1\r\n"
+             + "PushOptions=\r\n";
+    }
+
+    // ── Attendance records push ───────────────────────────────────────────────
+
+    @PostMapping(value = {"/cdata", "/cdata.aspx"}, consumes = { MediaType.TEXT_PLAIN_VALUE,
+            MediaType.APPLICATION_FORM_URLENCODED_VALUE, "*/*" })
+    public String receivePush(
+            @RequestParam(required = false) String SN,
+            @RequestParam(required = false) String table,
+            @RequestBody(required = false) String body) {
+
+        log.info("ADMS push — SN={} table={}", SN, table);
+        if (body != null) log.info("ADMS body:\n{}", body);
+
+        if (body == null || body.isBlank()) return "OK";
+
+        String deviceIp = resolveIp(SN);
+        int saved = 0;
+
+        for (String line : body.split("[\r\n]+")) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+
+            // Strip "ATTLOG:" prefix if present
+            if (line.startsWith("ATTLOG:")) line = line.substring(7);
+            // Skip non-data lines
+            if (line.startsWith("SN=") || line.startsWith("GET ") || line.startsWith("OK")) continue;
+
+            String[] parts = line.split("\t");
+            if (parts.length < 2) continue;
+
+            String userId   = parts[0].trim();
+            String timeStr  = parts[1].trim();
+            int    status   = parts.length > 2 ? parseIntSafe(parts[2]) : 0;
+
+            LocalDateTime punchTime = parseDateTime(timeStr);
+            if (punchTime == null) {
+                log.warn("ADMS unparseable datetime '{}' in line: {}", timeStr, line);
+                continue;
+            }
+
+            Optional<String> empId = resolveEmployee(userId);
+            if (empId.isEmpty()) {
+                log.warn("ADMS no match for userId='{}' — add biometric_id={} to wt_employees", userId, userId);
+                continue;
+            }
+
+            PunchRequest req = new PunchRequest();
+            req.setEmployeeId(empId.get());
+            req.setPunchTime(punchTime);
+            req.setPunchState(isCheckOut(status) ? 1 : 0);
+            req.setDeviceId(deviceIp);
+
+            try {
+                processingService.processPunch(req);
+                saved++;
+                log.info("ADMS punch saved — emp={} time={} state={}", empId.get(), punchTime, req.getPunchState());
+            } catch (Exception e) {
+                log.debug("ADMS processPunch skip: {}", e.getMessage());
+            }
+        }
+
+        if (saved > 0) log.info("ADMS push — {} punches saved to DB", saved);
+        return "OK";
+    }
+
+    // ── Get pending commands (some devices poll this) ─────────────────────────
+
+    @GetMapping({"/getrequest", "/getrequest.aspx"})
+    public String getRequest(@RequestParam(required = false) String SN) {
+        log.debug("ADMS getrequest SN={}", SN);
+        return "OK";
+    }
+
+    // ── Device command result (some devices POST back) ────────────────────────
+
+    @PostMapping("/devicecmd")
+    public String deviceCmd(@RequestBody(required = false) String body) {
+        log.debug("ADMS devicecmd: {}", body);
+        return "OK";
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // Returns Stamp = epoch-seconds of last known punch (0 when DB is empty → device sends full history)
+    private long markConnected(String sn) {
+        long stamp = rawRepo.findMaxPunchTimeEpoch();
+        if (sn != null) {
+            deviceRepo.findAll().stream()
+                .filter(Device::isActive)
+                .findFirst()
+                .ifPresent(d -> {
+                    d.setConnected(true);
+                    d.setLastSeen(LocalDateTime.now());
+                    if (d.getSerialNumber() == null || d.getSerialNumber().isBlank())
+                        d.setSerialNumber(sn);
+                    deviceRepo.save(d);
+                });
+        }
+        log.info("ADMS Stamp returned to device: {}", stamp);
+        return stamp;
+    }
+
+    private String resolveIp(String sn) {
+        return deviceRepo.findAll().stream()
+            .filter(Device::isActive)
+            .map(Device::getIpAddress)
+            .findFirst()
+            .orElse("ADMS");
+    }
+
+    private Optional<String> resolveEmployee(String code) {
+        if (code == null || code.isBlank()) return Optional.empty();
+        if (employeeRepo.existsById(code)) return Optional.of(code);
+        var byBio = employeeRepo.findByBiometricId(code);
+        if (byBio.isPresent()) return Optional.of(byBio.get().getId());
+        try {
+            String pad = String.format("%03d", Integer.parseInt(code));
+            return employeeRepo.findAll().stream()
+                .filter(e -> e.getId().endsWith(pad))
+                .map(com.wilotus.timetracker.entity.Employee::getId)
+                .findFirst();
+        } catch (NumberFormatException ignored) {}
+        return Optional.empty();
+    }
+
+    private LocalDateTime parseDateTime(String s) {
+        for (DateTimeFormatter fmt : FMTS) {
+            try { return LocalDateTime.parse(s, fmt); } catch (DateTimeParseException ignored) {}
+        }
+        return null;
+    }
+
+    private boolean isCheckOut(int status) {
+        // eSSL status codes: 0=check-in, 1=check-out, 4=break-out, 5=break-in
+        return status == 1 || status == 3;
+    }
+
+    private int parseIntSafe(String s) {
+        try { return Integer.parseInt(s.trim()); } catch (NumberFormatException e) { return 0; }
+    }
+}
