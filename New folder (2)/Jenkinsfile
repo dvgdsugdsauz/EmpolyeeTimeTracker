@@ -27,9 +27,11 @@ pipeline {
 
         stage('Build Frontend') {
             steps {
-                dir('New folder (2)/employee-timetracker') {
-                    sh 'npm install'
-                    sh 'npm run build'
+                nodejs(nodeJSInstallationName: 'nodejs') {
+                    dir('New folder (2)/employee-timetracker') {
+                        sh 'npm install'
+                        sh 'npm run build'
+                    }
                 }
             }
         }
