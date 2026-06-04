@@ -19,7 +19,7 @@ pipeline {
 
         stage('Build Backend') {
             steps {
-                dir('employee-timetracker-backend') {
+                dir('New folder (2)/employee-timetracker-backend') {
                     sh 'mvn clean package -DskipTests'
                 }
             }
@@ -27,7 +27,7 @@ pipeline {
 
         stage('Build Frontend') {
             steps {
-                dir('employee-timetracker') {
+                dir('New folder (2)/employee-timetracker') {
                     sh 'npm install'
                     sh 'npm run build'
                 }
@@ -42,13 +42,13 @@ pipeline {
                     sh "ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} 'mkdir -p ${DEPLOY_DIR}/frontend'"
 
                     // Copy backend JAR
-                    sh "scp employee-timetracker-backend/target/${JAR_NAME} ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/"
+                    sh "scp 'New folder (2)/employee-timetracker-backend/target/${JAR_NAME}' ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/"
 
                     // Copy frontend build
-                    sh "scp -r employee-timetracker/dist/* ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/frontend/"
+                    sh "scp -r 'New folder (2)/employee-timetracker/dist/'* ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/frontend/"
 
                     // Copy deploy script and run it
-                    sh "scp deploy.sh ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/"
+                    sh "scp 'New folder (2)/deploy.sh' ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/"
                     sh "ssh ${DEPLOY_USER}@${DEPLOY_SERVER} 'chmod +x ${DEPLOY_DIR}/deploy.sh && ${DEPLOY_DIR}/deploy.sh'"
                 }
             }
