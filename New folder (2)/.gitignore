@@ -13,15 +13,14 @@ employee-timetracker-backend/*.log
 node_modules/
 *.class
 *.log
-*.json
 migrate_mdb_to_postgres.py
+d:token_resp.json
 CreateDB.java
 CreateDB.class
 DBTest.java
 DBTest.class
 hs_err_pid*.log
 replay_pid*.log
-d:token_resp.json
 
 # IDE
 .vscode/
