@@ -35,20 +35,14 @@ pipeline {
 
         stage('Deploy to Server') {
             steps {
-                sshagent(credentials: ['deploy-server-ssh']) {
-
-                    // Create deploy directory on server
-                    sh "ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} 'mkdir -p ${DEPLOY_DIR}/frontend'"
-
-                    // Copy backend JAR
-                    sh "scp 'New folder (2)/employee-timetracker-backend/target/${JAR_NAME}' ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/"
-
-                    // Copy frontend build
-                    sh "scp -r 'New folder (2)/employee-timetracker/dist/'* ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/frontend/"
-
-                    // Copy deploy script and run it
-                    sh "scp 'New folder (2)/deploy.sh' ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_DIR}/"
-                    sh "ssh ${DEPLOY_USER}@${DEPLOY_SERVER} 'chmod +x ${DEPLOY_DIR}/deploy.sh && ${DEPLOY_DIR}/deploy.sh'"
+                withCredentials([usernamePassword(credentialsId: 'deploy-server-ssh', usernameVariable: 'SSH_USER', passwordVariable: 'SSH_PASS')]) {
+                    sh """
+                        sshpass -p "\$SSH_PASS" ssh -o StrictHostKeyChecking=no \$SSH_USER@${DEPLOY_SERVER} 'mkdir -p ${DEPLOY_DIR}/frontend'
+                        sshpass -p "\$SSH_PASS" scp -o StrictHostKeyChecking=no "New folder (2)/employee-timetracker-backend/target/${JAR_NAME}" \$SSH_USER@${DEPLOY_SERVER}:${DEPLOY_DIR}/
+                        sshpass -p "\$SSH_PASS" scp -o StrictHostKeyChecking=no -r "New folder (2)/employee-timetracker/dist/." \$SSH_USER@${DEPLOY_SERVER}:${DEPLOY_DIR}/frontend/
+                        sshpass -p "\$SSH_PASS" scp -o StrictHostKeyChecking=no "New folder (2)/deploy.sh" \$SSH_USER@${DEPLOY_SERVER}:${DEPLOY_DIR}/
+                        sshpass -p "\$SSH_PASS" ssh -o StrictHostKeyChecking=no \$SSH_USER@${DEPLOY_SERVER} 'chmod +x ${DEPLOY_DIR}/deploy.sh && ${DEPLOY_DIR}/deploy.sh'
+                    """
                 }
             }
         }
