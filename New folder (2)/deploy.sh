@@ -17,8 +17,8 @@ echo "Backend started on port $APP_PORT"
 
 echo "=== Setting up Nginx for frontend ==="
 if command -v nginx &> /dev/null; then
-    sudo cp -r "$DEPLOY_DIR/frontend/"* /var/www/html/
-    sudo nginx -s reload
+    cp -r "$DEPLOY_DIR/frontend/"* /var/www/html/
+    nginx -s reload 2>/dev/null || sudo nginx -s reload 2>/dev/null || true
     echo "Nginx reloaded"
 else
     echo "Nginx not installed — frontend files at $DEPLOY_DIR/frontend/"
