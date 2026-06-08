@@ -58,19 +58,31 @@ function transformApiData(liveList) {
 }
 
 export default function App() {
-  const [user, setUser]                     = useState(() => getSession())
+  // On startup: if API mode is enabled, only restore sessions that came from API login.
+  // Mock sessions (fromApi: false) are cleared so login page is shown fresh.
+  const initialUser = (() => {
+    const s = getSession()
+    if (!s) return null
+    if (USE_API && !s.fromApi) {
+      localStorage.removeItem('wilotus_session')
+      return null
+    }
+    return s
+  })()
+
+  const [user, setUser]                     = useState(initialUser)
   const [users, setUsers]                   = useState(USERS)
   const [attendance, setAttendance]         = useState(() => generateInitialAttendance())
   const [notifications, setNotifications]   = useState(NOTIFICATIONS_INIT)
   const [devices, setDevices]               = useState(DEVICES_INIT)
   const [currentPage, setCurrentPage]       = useState(() => {
-    const session = getSession()
+    const session = initialUser
     return session?.role === 'manager' ? 'live' : 'dashboard'
   })
   const [chartData, setChartData]           = useState([])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showNotifPanel, setShowNotifPanel] = useState(false)
-  const apiMode = useRef(USE_API && !!user)
+  const apiMode = useRef(USE_API && !!initialUser)
 
   // ── API mode: admin/manager — real-time SSE with polling fallback ────────
   useEffect(() => {
@@ -240,8 +252,8 @@ export default function App() {
   }
 
   const handleLogout = () => {
-    if (apiMode.current) api.logout()
-    else localStorage.removeItem('wilotus_session')
+    api.logout()
+    localStorage.removeItem('wilotus_session')
     setUser(null)
     apiMode.current = false
   }
