@@ -29,17 +29,38 @@ function monthLabel(year, month) {
 }
 
 export default function Reports({ users }) {
-  const employees  = users.filter(u => u.role === 'employee')
-  const today      = new Date()
+  const today = new Date()
 
-  const [selectedEmp, setSelectedEmp] = useState(employees[0] || null)
-  const [search, setSearch]           = useState(employees[0]?.name || '')
-  const [showList, setShowList]       = useState(false)
-  const [year,  setYear]              = useState(today.getFullYear())
-  const [month, setMonth]             = useState(today.getMonth())
-  const [monthHistory, setMonthHistory] = useState([])
-  const [loading, setLoading]           = useState(false)
+  const [allEmployees, setAllEmployees]   = useState([])
+  const [selectedEmp, setSelectedEmp]     = useState(null)
+  const [search, setSearch]               = useState('')
+  const [showList, setShowList]           = useState(false)
+  const [year,  setYear]                  = useState(today.getFullYear())
+  const [month, setMonth]                 = useState(today.getMonth())
+  const [monthHistory, setMonthHistory]   = useState([])
+  const [loading, setLoading]             = useState(false)
   const wrapRef = useRef(null)
+
+  // Load all employees from API on mount
+  useEffect(() => {
+    if (USE_API) {
+      api.fetchEmployees()
+        .then(list => {
+          const emps = list.filter(u => u.role?.toLowerCase() === 'employee')
+          setAllEmployees(emps)
+        })
+        .catch(() => {
+          // fallback to users prop
+          const emps = users.filter(u => u.role?.toLowerCase() === 'employee')
+          setAllEmployees(emps)
+        })
+    } else {
+      const emps = users.filter(u => u.role?.toLowerCase() === 'employee')
+      setAllEmployees(emps)
+    }
+  }, [])
+
+  const employees = allEmployees
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -101,9 +122,10 @@ export default function Reports({ users }) {
 
   const filtered = employees.filter(e =>
     search.trim()
-      ? e.name.toLowerCase().includes(search.toLowerCase()) ||
-        e.id.toLowerCase().includes(search.toLowerCase()) ||
-        e.dept.toLowerCase().includes(search.toLowerCase())
+      ? (e.name || '').toLowerCase().includes(search.toLowerCase()) ||
+        (e.id || '').toLowerCase().includes(search.toLowerCase()) ||
+        (e.dept || '').toLowerCase().includes(search.toLowerCase()) ||
+        (e.username || '').toLowerCase().includes(search.toLowerCase())
       : true
   )
 
@@ -190,7 +212,7 @@ export default function Reports({ users }) {
                         width: 30, height: 30, borderRadius: '50%', background: '#1e293b',
                         color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: 11, fontWeight: 700, flexShrink: 0,
-                      }}>{emp.avatar}</div>
+                      }}>{emp.avatar || emp.name?.slice(0,2).toUpperCase()}</div>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{emp.name}</div>
                         <div style={{ fontSize: 11, color: '#94a3b8' }}>{emp.id} · {emp.dept}</div>
