@@ -46,17 +46,15 @@ export default function Reports({ users }) {
     if (USE_API) {
       api.fetchEmployees()
         .then(list => {
-          const emps = list.filter(u => u.role?.toLowerCase() === 'employee')
+          // Show all active staff — employees, managers, admins
+          const emps = list.filter(u => u.active !== false)
           setAllEmployees(emps)
         })
         .catch(() => {
-          // fallback to users prop
-          const emps = users.filter(u => u.role?.toLowerCase() === 'employee')
-          setAllEmployees(emps)
+          setAllEmployees(users.filter(u => u.active !== false))
         })
     } else {
-      const emps = users.filter(u => u.role?.toLowerCase() === 'employee')
-      setAllEmployees(emps)
+      setAllEmployees(users.filter(u => u.active !== false))
     }
   }, [])
 
