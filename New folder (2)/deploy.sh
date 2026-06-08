@@ -2,7 +2,7 @@
 
 DEPLOY_DIR="/opt/timetracker"
 JAR_NAME="employee-timetracker-1.0.0.jar"
-APP_PORT=8080
+APP_PORT=8081
 
 echo "=== Stopping old backend ==="
 pkill -f "$JAR_NAME" || true
@@ -33,7 +33,7 @@ server {
 
     # Proxy API calls to Spring Boot backend
     location /api/ {
-        proxy_pass http://127.0.0.1:8080;
+        proxy_pass http://127.0.0.1:8081;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
