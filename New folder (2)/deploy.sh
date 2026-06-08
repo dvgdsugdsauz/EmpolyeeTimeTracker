@@ -6,6 +6,9 @@ APP_PORT=8081
 
 echo "=== Stopping old backend ==="
 pkill -f "$JAR_NAME" || true
+sleep 3
+# Force kill anything still on the port
+fuser -k ${APP_PORT}/tcp 2>/dev/null || true
 sleep 2
 
 echo "=== Starting new backend ==="
