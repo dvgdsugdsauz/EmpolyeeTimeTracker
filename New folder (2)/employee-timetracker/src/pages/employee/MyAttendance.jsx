@@ -149,65 +149,78 @@ export default function MyAttendance({ user }) {
                   <th>Status</th>
                   <th>Entry</th>
                   <th>Exit</th>
-                  <th>Work Hours</th>
+                  <th>Presence</th>
                   <th>Break</th>
+                  <th>Work Hours</th>
                   <th>Late</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(h => (
-                  <tr key={h.date}>
-                    <td style={{ fontWeight: 500, color: '#1e293b', whiteSpace: 'nowrap' }}>
-                      {formatDateLabel(h.date)}
-                    </td>
-                    <td>
-                      <span className={`presence-badge ${
-                        h.status === 'PRESENT' ? 'badge-present'
-                        : h.status === 'HOLIDAY' ? 'badge-holiday'
-                        : h.status === 'OFFLINE' ? 'badge-offline'
-                        : 'badge-absent'
-                      }`}>
-                        {h.status}
-                      </span>
-                    </td>
-                    <td>
-                      {h.entryTime
-                        ? <div className="ta-time-box ta-time-normal">{h.entryTime}</div>
-                        : <span className="ta-dash">—</span>}
-                    </td>
-                    <td>
-                      {h.exitTime
-                        ? <div className="ta-time-box ta-time-normal">{h.exitTime}</div>
-                        : <span className="ta-dash">—</span>}
-                    </td>
-                    <td>
-                      <span className={`ta-shift-duration ${
-                        h.workTotal > 8 * 3600000 ? 'ta-shift-ot'
-                        : h.workTotal > 0 ? 'ta-shift-ok' : ''
-                      }`}>
-                        {h.workTotal ? formatDuration(h.workTotal) : '—'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="ta-duration-text">
-                        {h.breakTotal ? formatDuration(h.breakTotal) : '—'}
-                      </span>
-                    </td>
-                    <td>
-                      {(h.lateStatus === 'LATE' || h.lateStatus === 'VERY_LATE')
-                        ? <span className="late-tag" style={{
-                            color: h.lateStatus === 'LATE' ? '#f97316' : '#ef4444',
-                            background: h.lateStatus === 'LATE' ? '#ffedd5' : '#fee2e2',
-                          }}>
-                            {h.lateStatus === 'LATE' ? 'Late' : 'Very Late'}
-                          </span>
-                        : h.status === 'PRESENT'
-                          ? <span className="ta-ontime">On Time</span>
-                          : <span className="ta-dash">—</span>
-                      }
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map(h => {
+                  const [eh, em] = h.entryTime ? h.entryTime.split(':').map(Number) : [0, 0]
+                  const [xh, xm] = h.exitTime  ? h.exitTime.split(':').map(Number)  : [0, 0]
+                  const presenceMin = (h.entryTime && h.exitTime) ? (xh * 60 + xm) - (eh * 60 + em) : 0
+                  const totalBreakMs = h.breakTotal + h.lunchTotal
+                  const presenceStr = presenceMin > 0
+                    ? `${Math.floor(presenceMin / 60)}h ${String(presenceMin % 60).padStart(2, '0')}m`
+                    : '—'
+                  return (
+                    <tr key={h.date}>
+                      <td style={{ fontWeight: 500, color: '#1e293b', whiteSpace: 'nowrap' }}>
+                        {formatDateLabel(h.date)}
+                      </td>
+                      <td>
+                        <span className={`presence-badge ${
+                          h.status === 'PRESENT' ? 'badge-present'
+                          : h.status === 'HOLIDAY' ? 'badge-holiday'
+                          : h.status === 'OFFLINE' ? 'badge-offline'
+                          : 'badge-absent'
+                        }`}>
+                          {h.status}
+                        </span>
+                      </td>
+                      <td>
+                        {h.entryTime
+                          ? <div className="ta-time-box ta-time-normal">{h.entryTime}</div>
+                          : <span className="ta-dash">—</span>}
+                      </td>
+                      <td>
+                        {h.exitTime
+                          ? <div className="ta-time-box ta-time-normal">{h.exitTime}</div>
+                          : <span className="ta-dash">—</span>}
+                      </td>
+                      <td>
+                        <span className="ta-duration-text">{presenceStr}</span>
+                      </td>
+                      <td>
+                        <span className="ta-duration-text">
+                          {totalBreakMs > 0 ? formatDuration(totalBreakMs) : '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`ta-shift-duration ${
+                          h.workTotal > 8 * 3600000 ? 'ta-shift-ot'
+                          : h.workTotal > 0 ? 'ta-shift-ok' : ''
+                        }`}>
+                          {h.workTotal ? formatDuration(h.workTotal) : '—'}
+                        </span>
+                      </td>
+                      <td>
+                        {(h.lateStatus === 'LATE' || h.lateStatus === 'VERY_LATE')
+                          ? <span className="late-tag" style={{
+                              color: h.lateStatus === 'LATE' ? '#f97316' : '#ef4444',
+                              background: h.lateStatus === 'LATE' ? '#ffedd5' : '#fee2e2',
+                            }}>
+                              {h.lateStatus === 'LATE' ? 'Late' : 'Very Late'}
+                            </span>
+                          : (h.status === 'PRESENT' || h.status === 'OFFLINE')
+                            ? <span className="ta-ontime">On Time</span>
+                            : <span className="ta-dash">—</span>
+                        }
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
