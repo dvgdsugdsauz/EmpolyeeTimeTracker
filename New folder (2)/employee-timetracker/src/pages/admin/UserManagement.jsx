@@ -9,6 +9,21 @@ const DEPARTMENTS = [
   'Operations & Enablement',
 ]
 
+const DESIGNATIONS = [
+  'Associate Software Engineer - Frontend UI',
+  'Associate Software Engineer - Frontend UX',
+  'Software Engineer - Frontend UI',
+  'Software Engineer - Mobile Developer',
+  'Senior Software Engineer - Frontend Lead',
+  'Technical Delivery Manager',
+  'IT Systems Manager',
+  'IT Systems Administrator',
+  'Quality Assurance Engineer',
+  'Finance Manager',
+  'HR Coordinator',
+  'HR Manager',
+]
+
 const EMPTY_FORM = { name: '', email: '', username: '', dept: '', designation: '', role: 'employee', password: '' }
 
 const ROLE_COLORS = { employee: '#4f46e5', manager: '#0891b2', admin: '#7c3aed' }
@@ -235,7 +250,10 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                 </div>
                 <div className="form-group form-col-span-2">
                   <label>Designation</label>
-                  <input value={form.designation} onChange={e => setForm({...form, designation: e.target.value})} placeholder="e.g. Software Engineer - Backend" />
+                  <select value={form.designation} onChange={e => setForm({...form, designation: e.target.value})}>
+                    <option value="">Select designation</option>
+                    {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label>Password</label>
@@ -291,7 +309,10 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                 </div>
                 <div className="form-group form-col-span-2">
                   <label>Designation</label>
-                  <input value={editForm.designation} onChange={e => setEditForm({...editForm, designation: e.target.value})} placeholder="e.g. Senior Database Administrator - Lead" />
+                  <select value={editForm.designation} onChange={e => setEditForm({...editForm, designation: e.target.value})}>
+                    <option value="">Select designation</option>
+                    {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                 </div>
                 <div className="form-group form-col-span-2">
                   <label>New Password <span style={{ color: '#9ca3af', fontWeight: 400 }}>(leave blank to keep current)</span></label>
