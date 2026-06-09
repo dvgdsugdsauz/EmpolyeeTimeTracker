@@ -313,6 +313,8 @@ export default function Reports({ users }) {
                     <th>Status</th>
                     <th>Entry</th>
                     <th>Exit</th>
+                    <th>Presence</th>
+                    <th>Break</th>
                     <th>Work Hours</th>
                     <th>Late</th>
                   </tr>
@@ -328,6 +330,14 @@ export default function Reports({ users }) {
                       </td>
                       <td>{h.entryTime || '--'}</td>
                       <td>{h.exitTime || '--'}</td>
+                      <td>{(h.entryTime && h.exitTime) ? (() => {
+                        const [eh, em] = h.entryTime.split(':').map(Number)
+                        const [xh, xm] = h.exitTime.split(':').map(Number)
+                        const diffMin = (xh * 60 + xm) - (eh * 60 + em)
+                        if (diffMin <= 0) return '--'
+                        return `${Math.floor(diffMin / 60)}h ${String(diffMin % 60).padStart(2,'0')}m`
+                      })() : '--'}</td>
+                      <td>{(h.breakTotal + h.lunchTotal) > 0 ? formatDuration(h.breakTotal + h.lunchTotal) : '--'}</td>
                       <td>{h.workTotal ? formatDuration(h.workTotal) : '--'}</td>
                       <td>
                         {(h.lateStatus === 'LATE' || h.lateStatus === 'VERY_LATE') ? (

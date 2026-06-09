@@ -305,46 +305,43 @@ public class AttendanceProcessingService {
 
         int n = punches.size();
 
-        // Login = first IN punch, Logout = last OUT punch
-        LocalTime entryTime = null, exitTime = null;
-        for (AttendanceRaw p : punches)
-            if (p.getPunchState() == 0) { entryTime = p.getPunchTime().toLocalTime(); break; }
-        for (int i = n - 1; i >= 0; i--)
-            if (punches.get(i).getPunchState() == 1) { exitTime = punches.get(i).getPunchTime().toLocalTime(); break; }
-        if (entryTime == null) entryTime = punches.get(0).getPunchTime().toLocalTime();
+        // First punch = Login, Last punch = Logout (state-agnostic — device states unreliable)
+        LocalDateTime firstPunch = punches.get(0).getPunchTime();
+        LocalDateTime lastPunch  = punches.get(n - 1).getPunchTime();
+        LocalTime entryTime = firstPunch.toLocalTime();
+        LocalTime exitTime  = lastPunch.toLocalTime();
 
         String lateStatus = calculateLateStatus(entryTime);
 
-        // Actual work = sum of IN→OUT pairs (strict positional: index 0+1, 2+3, 4+5 …)
-        long totalWorkMs  = 0;
+        // Presence = last punch - first punch (gross span)
+        long presenceMs = Duration.between(firstPunch, lastPunch).toMillis();
+
+        // Positional pairs (0+1, 2+3 …) used only to find break gaps — state ignored
         long totalBreakMs = 0;
         long totalLunchMs = 0;
-
         List<LocalDateTime[]> pairs = new java.util.ArrayList<>();
         for (int i = 0; i + 1 < n; i += 2) {
-            AttendanceRaw a = punches.get(i), b = punches.get(i + 1);
-            if (a.getPunchState() == 0 && b.getPunchState() == 1) {
-                long seg = Duration.between(a.getPunchTime(), b.getPunchTime()).toMillis();
-                if (seg > 0) {
-                    totalWorkMs += seg;
-                    pairs.add(new LocalDateTime[]{a.getPunchTime(), b.getPunchTime()});
-                }
-            }
+            LocalDateTime a = punches.get(i).getPunchTime();
+            LocalDateTime b = punches.get(i + 1).getPunchTime();
+            if (Duration.between(a, b).toMillis() > 0)
+                pairs.add(new LocalDateTime[]{a, b});
         }
 
-        // Gaps between consecutive pairs = break or lunch time
+        // Break = gaps between consecutive pairs
         for (int i = 1; i < pairs.size(); i++) {
-            LocalDateTime gapStart = pairs.get(i - 1)[1]; // previous OUT
-            LocalDateTime gapEnd   = pairs.get(i)[0];     // next IN
+            LocalDateTime gapStart = pairs.get(i - 1)[1];
+            LocalDateTime gapEnd   = pairs.get(i)[0];
             long gapMs = Duration.between(gapStart, gapEnd).toMillis();
             if (gapMs <= 0) continue;
             if (isLunchWindow(gapStart.toLocalTime())) totalLunchMs += gapMs;
             else                                        totalBreakMs += gapMs;
         }
 
-        // OFFLINE if last punch is OUT, else PRESENT
-        String finalStatus = pairs.isEmpty() ? "ABSENT"
-                : (punches.get(n - 1).getPunchState() == 1 ? "OFFLINE" : "PRESENT");
+        // Actual Work = Presence - Break  →  always ≤ Presence (validation guaranteed)
+        long totalWorkMs = Math.max(0, presenceMs - totalBreakMs - totalLunchMs);
+
+        // OFFLINE = has distinct entry+exit; PRESENT = single punch (didn't punch out)
+        String finalStatus = (presenceMs > 0) ? "OFFLINE" : "PRESENT";
 
         AttendanceDailySummary summary = summaryRepo.findByEmployeeIdAndDate(employeeId, date)
                 .orElseGet(() -> AttendanceDailySummary.builder().employeeId(employeeId).date(date).build());
@@ -356,8 +353,8 @@ public class AttendanceProcessingService {
         summary.setLateStatus(lateStatus);
         summary.setStatus(finalStatus);
         summaryRepo.save(summary);
-        log.debug("Summary built: emp={} date={} work={}ms break={}ms lunch={}ms status={}",
-                employeeId, date, totalWorkMs, totalBreakMs, totalLunchMs, finalStatus);
+        log.debug("Summary built: emp={} date={} presence={}ms work={}ms break={}ms lunch={}ms status={}",
+                employeeId, date, presenceMs, totalWorkMs, totalBreakMs, totalLunchMs, finalStatus);
     }
 
     // ── Admin: fix raw punch states and rebuild all daily summaries ─────────────

@@ -60,29 +60,28 @@ for (emp_id, work_date), punches in data.items():
     if not punches:
         continue
 
-    # Login = first IN punch, Logout = last OUT punch
-    entry_time = next((t for t, s in punches if s == 0), punches[0][0])
-    exit_time  = next((t for t, s in reversed(punches) if s == 1), None)
+    # First punch = Login, Last punch = Logout (state-agnostic — device states unreliable)
+    entry_time = punches[0][0]
+    exit_time  = punches[-1][0]
 
-    # Actual work = sum of IN→OUT pairs (strict positional: index 0+1, 2+3, 4+5 …)
-    total_work_ms  = 0
+    presence_ms = int((exit_time - entry_time).total_seconds() * 1000)
+
+    # Positional pairs (0+1, 2+3 …) used only to find break gaps — punch_state ignored
     total_break_ms = 0
     total_lunch_ms = 0
     pairs = []
 
     for i in range(0, len(punches) - 1, 2):
-        a_time, a_state = punches[i]
-        b_time, b_state = punches[i + 1]
-        if a_state == 0 and b_state == 1:
-            seg = int((b_time - a_time).total_seconds() * 1000)
-            if seg > 0:
-                total_work_ms += seg
-                pairs.append((a_time, b_time))
+        a_time = punches[i][0]
+        b_time = punches[i + 1][0]
+        seg = int((b_time - a_time).total_seconds() * 1000)
+        if seg > 0:
+            pairs.append((a_time, b_time))
 
-    # Gaps between consecutive pairs = break or lunch time
+    # Break = gaps between consecutive pairs
     for i in range(1, len(pairs)):
-        out_t  = pairs[i - 1][1]  # previous OUT
-        in_t   = pairs[i][0]      # next IN
+        out_t  = pairs[i - 1][1]
+        in_t   = pairs[i][0]
         gap_ms = int((in_t - out_t).total_seconds() * 1000)
         if gap_ms <= 0:
             continue
@@ -92,7 +91,8 @@ for (emp_id, work_date), punches in data.items():
         else:
             total_break_ms += gap_ms
 
-    total_work_ms = max(0, total_work_ms)
+    # Actual Work = Presence - Break  →  always ≤ Presence (validation guaranteed)
+    total_work_ms = max(0, presence_ms - total_break_ms - total_lunch_ms)
 
     # Late status
     entry_mins = entry_time.hour * 60 + entry_time.minute
@@ -103,13 +103,11 @@ for (emp_id, work_date), punches in data.items():
     else:
         late_status = 'VERY_LATE'
 
-    # Status: OFFLINE if last punch is OUT, PRESENT if last punch is IN, ABSENT if no valid pairs
+    # Status: OFFLINE = has distinct entry+exit; PRESENT = single punch
     day_of_week = work_date.isoweekday()  # 1=Mon...7=Sun
     if day_of_week in WEEKEND_DAYS:
         status = 'WEEKEND'
-    elif not pairs:
-        status = 'ABSENT'
-    elif punches[-1][1] == 1:
+    elif presence_ms > 0:
         status = 'OFFLINE'
     else:
         status = 'PRESENT'
