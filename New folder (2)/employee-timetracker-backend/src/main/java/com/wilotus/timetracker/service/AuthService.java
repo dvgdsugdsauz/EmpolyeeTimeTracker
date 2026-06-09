@@ -18,6 +18,15 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
+    public void changePassword(String username, String currentPassword, String newPassword) {
+        Employee employee = employeeRepo.findByUsernameOrEmail(username, username)
+                .orElseThrow(() -> new BadCredentialsException("User not found"));
+        if (!passwordEncoder.matches(currentPassword, employee.getPassword()))
+            throw new BadCredentialsException("Current password incorrect");
+        employee.setPassword(passwordEncoder.encode(newPassword));
+        employeeRepo.save(employee);
+    }
+
     public LoginResponse login(LoginRequest req) {
         String identifier = req.getIdentifier().trim();
         Employee employee = employeeRepo.findByUsernameOrEmail(identifier, identifier)

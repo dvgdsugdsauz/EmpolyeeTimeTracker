@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { resetEmployeePassword } from '../../services/api'
 
+const USE_API = Boolean(import.meta.env.VITE_API_URL)
 const EMPTY_FORM = { name: '', email: '', username: '', dept: '', role: 'employee', password: '' }
 
 const ROLE_COLORS = { employee: '#4f46e5', manager: '#0891b2', admin: '#7c3aed' }
@@ -14,14 +16,33 @@ function RoleBadge({ role }) {
 }
 
 export default function UserManagement({ users, onAddUser, onEditUser, onDeleteUser }) {
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [editUser, setEditUser]       = useState(null)
-  const [form, setForm]               = useState(EMPTY_FORM)
-  const [editForm, setEditForm]       = useState({})
-  const [roleFilter, setRoleFilter]   = useState('ALL')
-  const [search, setSearch]           = useState('')
-  const [error, setError]             = useState('')
-  const [editError, setEditError]     = useState('')
+  const [showAddForm, setShowAddForm]     = useState(false)
+  const [editUser, setEditUser]           = useState(null)
+  const [form, setForm]                   = useState(EMPTY_FORM)
+  const [editForm, setEditForm]           = useState({})
+  const [roleFilter, setRoleFilter]       = useState('ALL')
+  const [search, setSearch]               = useState('')
+  const [error, setError]                 = useState('')
+  const [editError, setEditError]         = useState('')
+  const [resetUser, setResetUser]         = useState(null)
+  const [resetPw, setResetPw]             = useState('')
+  const [resetMsg, setResetMsg]           = useState('')
+  const [resetError, setResetError]       = useState('')
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault()
+    setResetError('')
+    if (resetPw.length < 6) return setResetError('Password must be at least 6 characters')
+    if (USE_API) {
+      try {
+        await resetEmployeePassword(resetUser.id, resetPw)
+      } catch (err) {
+        return setResetError(err.message || 'Failed')
+      }
+    }
+    setResetMsg('Password reset successfully!')
+    setTimeout(() => { setResetUser(null); setResetPw(''); setResetMsg('') }, 1500)
+  }
 
   const filtered = users.filter(u => {
     const matchRole   = roleFilter === 'ALL' || u.role === roleFilter
@@ -139,6 +160,10 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                         </svg>
                         Edit
                       </button>
+                      <button className="btn-secondary-sm" onClick={() => { setResetUser(u); setResetPw(''); setResetError(''); setResetMsg('') }} title="Reset Password"
+                        style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>
+                        🔑
+                      </button>
                       <button className="btn-danger-sm" onClick={() => onDeleteUser(u.id)} title="Delete User">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -253,6 +278,42 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={() => setEditUser(null)}>Cancel</button>
                 <button type="submit" className="btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetUser && (
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setResetUser(null) }}>
+          <div className="modal-box" style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3>Reset Password</h3>
+              <button className="modal-close" onClick={() => setResetUser(null)}>×</button>
+            </div>
+            <form onSubmit={handleResetPassword}>
+              <div style={{ padding: '16px 24px 8px' }}>
+                <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, fontSize: 13, color: '#475569' }}>
+                  <strong>{resetUser.name}</strong> ({resetUser.id})
+                </div>
+                <div className="form-group">
+                  <label>New Password</label>
+                  <input
+                    type="password"
+                    value={resetPw}
+                    onChange={e => setResetPw(e.target.value)}
+                    placeholder="Min 6 characters"
+                    autoFocus
+                    required
+                  />
+                </div>
+                {resetError && <p className="form-error">{resetError}</p>}
+                {resetMsg && <p style={{ color: '#16a34a', fontSize: 13, margin: '4px 0' }}>{resetMsg}</p>}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-secondary" onClick={() => setResetUser(null)}>Cancel</button>
+                <button type="submit" className="btn-primary">Reset Password</button>
               </div>
             </form>
           </div>

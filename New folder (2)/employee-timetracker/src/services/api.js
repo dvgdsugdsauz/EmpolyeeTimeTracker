@@ -138,6 +138,18 @@ export function deleteEmployee(id) {
   return request(`/api/employees/${id}`, { method: 'DELETE' })
 }
 
+export function resetEmployeePassword(id, newPassword) {
+  return request(`/api/employees/${id}/reset-password`, {
+    method: 'POST', body: JSON.stringify({ newPassword }),
+  })
+}
+
+export function changeMyPassword(currentPassword, newPassword) {
+  return request('/api/auth/change-password', {
+    method: 'POST', body: JSON.stringify({ currentPassword, newPassword }),
+  })
+}
+
 // ── Devices ────────────────────────────────────────────────────────────────
 
 export function fetchDevices() {

@@ -15,6 +15,8 @@ public interface AttendanceRawRepository extends JpaRepository<AttendanceRaw, Lo
     Optional<AttendanceRaw> findTopByEmployeeIdAndPunchStateOrderByPunchTimeDesc(
             String employeeId, int punchState);
 
+    Optional<AttendanceRaw> findTopByOrderByPunchTimeDesc();
+
     boolean existsByEmployeeIdAndPunchTimeAndPunchState(
             String employeeId, LocalDateTime punchTime, int punchState);
 

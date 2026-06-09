@@ -57,10 +57,12 @@ public class ZktecoTcpService {
 
     private final Map<Long, LocalDateTime> lastSync = new ConcurrentHashMap<>();
 
-    // ── Scheduled poll ────────────────────────────────────────────────────
+    // ── Scheduled poll: every 30 min, 8 AM – 8 PM only ──────────────────
+    // Cron: seconds=0, minute=0 and 30, hours 8..19 (8:00, 8:30 … 19:30, last run before 20:00)
 
-    @Scheduled(fixedDelayString = "${app.biometric.poll-interval-ms:300000}")
+    @Scheduled(cron = "0 0/30 8-19 * * *")
     public void pollAllDevices() {
+        log.info("Biometric sync started — {}", java.time.LocalTime.now());
         deviceRepo.findByActiveTrue().forEach(device -> {
             try {
                 pullFromDevice(device);
@@ -71,6 +73,7 @@ public class ZktecoTcpService {
                 deviceRepo.save(device);
             }
         });
+        log.info("Biometric sync done — {}", java.time.LocalTime.now());
     }
 
     // ── Per-device pull via TCP ───────────────────────────────────────────
@@ -115,8 +118,13 @@ public class ZktecoTcpService {
             List<byte[]> records = fetchAttendanceLogs(out, in, sessionId, ++replyId);
             log.info("TCP pull — {} — {} raw records from device", device.getName(), records.size());
 
-            LocalDateTime since = lastSync.getOrDefault(device.getId(),
-                    LocalDateTime.now().minusDays(7));
+            // Use last punch time from DB so restart doesn't re-import old records
+            LocalDateTime since = lastSync.getOrDefault(device.getId(), null);
+            if (since == null) {
+                since = rawRepo.findTopByOrderByPunchTimeDesc()
+                        .map(r -> r.getPunchTime().minusMinutes(5))
+                        .orElse(LocalDateTime.now().minusDays(1));
+            }
 
             // Group new records by employee, sorted by time
             Map<String, List<AttRec>> byEnroll = new java.util.LinkedHashMap<>();

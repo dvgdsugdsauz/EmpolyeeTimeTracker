@@ -45,10 +45,10 @@ function getShiftColor(att, now) {
   return 'normal'
 }
 
-export default function ManagerDashboard({ users, attendance, myAttendance, currentUser, onApproveOffline }) {
+export default function ManagerDashboard({ users, attendance, myAttendance, currentUser, onApproveOffline, defaultStatusFilter }) {
   const [search, setSearch]         = useState('')
   const [deptFilter, setDeptFilter] = useState('All')
-  const [statusFilter, setStatusFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState(defaultStatusFilter || 'All')
   const [now, setNow]               = useState(Date.now())
   const [selectedDate, setSelectedDate] = useState(todayStr())
   const [histData, setHistData]     = useState(null)
@@ -62,8 +62,9 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
     return () => clearInterval(t)
   }, [])
 
-  // Fetch historical data when date changes
+  // Fetch historical data when date changes; reset status filter when toggling today/history
   useEffect(() => {
+    setStatusFilter(isToday ? (defaultStatusFilter || 'All') : 'All')
     if (isToday) { setHistData(null); return }
     if (!USE_API) { setHistData([]); return }
 

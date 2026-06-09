@@ -52,4 +52,19 @@ public class EmployeeController {
         employeeService.deactivate(id);
         return ResponseEntity.ok(Map.of("status", "deactivated"));
     }
+
+    /** Admin resets any user's password */
+    @PostMapping("/{id}/reset-password")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> resetPassword(@PathVariable String id, @RequestBody Map<String, String> body) {
+        String newPassword = body.get("newPassword");
+        if (newPassword == null || newPassword.length() < 6)
+            return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
+        try {
+            employeeService.resetPassword(id, newPassword);
+            return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

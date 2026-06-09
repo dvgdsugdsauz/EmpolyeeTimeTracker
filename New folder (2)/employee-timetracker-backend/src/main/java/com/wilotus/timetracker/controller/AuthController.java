@@ -6,6 +6,8 @@ import com.wilotus.timetracker.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -31,7 +33,23 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
-        // JWT is stateless — client discards token
         return ResponseEntity.ok(Map.of("message", "Logged out"));
+    }
+
+    /** Self password change — any logged-in user */
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody Map<String, String> body) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth.getName();
+        String currentPassword = body.get("currentPassword");
+        String newPassword     = body.get("newPassword");
+        if (currentPassword == null || newPassword == null || newPassword.length() < 6)
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid request"));
+        try {
+            authService.changePassword(username, currentPassword, newPassword);
+            return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(401).body(Map.of("error", "Current password is incorrect"));
+        }
     }
 }

@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { changeMyPassword } from '../../services/api'
+
+const USE_API = Boolean(import.meta.env.VITE_API_URL)
 
 const SECTION = ({ title, children }) => (
   <div className="section-card" style={{ marginBottom: 20 }}>
@@ -38,7 +41,7 @@ const SaveBtn = ({ onClick, saved }) => (
   </button>
 )
 
-export default function Settings() {
+export default function Settings({ role = 'admin' }) {
   const [saved, setSaved] = useState({})
 
   const save = (section) => {
@@ -70,84 +73,97 @@ export default function Settings() {
   const [pwError, setPwError] = useState('')
   const [pwSaved, setPwSaved] = useState(false)
 
-  const handleSavePassword = () => {
+  const handleSavePassword = async () => {
     setPwError('')
     if (!password.current) return setPwError('Enter current password')
     if (password.newPass.length < 6) return setPwError('New password must be at least 6 characters')
     if (password.newPass !== password.confirm) return setPwError('Passwords do not match')
+    if (USE_API) {
+      try {
+        await changeMyPassword(password.current, password.newPass)
+      } catch (e) {
+        return setPwError(e.message || 'Failed to change password')
+      }
+    }
     setPwSaved(true)
     setPassword({ current: '', newPass: '', confirm: '' })
     setTimeout(() => setPwSaved(false), 2000)
   }
 
+  const isAdmin = role === 'admin'
+
   return (
     <div className="page-content">
 
-      {/* Attendance Rules */}
-      <SECTION title="Attendance Rules">
-        <Field label="Late arrival after">
-          <Input type="time" value={attendance.lateAfter}
-            onChange={e => setAttendance(p => ({ ...p, lateAfter: e.target.value }))} style={{ width: 140 }} />
-        </Field>
-        <Field label="Very late arrival after">
-          <Input type="time" value={attendance.veryLateAfter}
-            onChange={e => setAttendance(p => ({ ...p, veryLateAfter: e.target.value }))} style={{ width: 140 }} />
-        </Field>
-        <Field label="Lunch window start">
-          <Input type="time" value={attendance.lunchStart}
-            onChange={e => setAttendance(p => ({ ...p, lunchStart: e.target.value }))} style={{ width: 140 }} />
-        </Field>
-        <Field label="Lunch window end">
-          <Input type="time" value={attendance.lunchEnd}
-            onChange={e => setAttendance(p => ({ ...p, lunchEnd: e.target.value }))} style={{ width: 140 }} />
-        </Field>
-        <Field label="Miss punch threshold (hours)">
-          <Input type="number" min="1" max="8" value={attendance.missPunchHours}
-            onChange={e => setAttendance(p => ({ ...p, missPunchHours: e.target.value }))} style={{ width: 80 }} />
-        </Field>
-        <Field label="Daily work target (hours)">
-          <Input type="number" min="1" max="12" value={attendance.targetHours}
-            onChange={e => setAttendance(p => ({ ...p, targetHours: e.target.value }))} style={{ width: 80 }} />
-        </Field>
-        <Field label="Daily reset time">
-          <Input type="time" value={attendance.dailyResetTime}
-            onChange={e => setAttendance(p => ({ ...p, dailyResetTime: e.target.value }))} style={{ width: 140 }} />
-        </Field>
-        <SaveBtn onClick={() => save('attendance')} saved={saved.attendance} />
-      </SECTION>
+      {/* Attendance Rules — admin only */}
+      {isAdmin && (
+        <SECTION title="Attendance Rules">
+          <Field label="Late arrival after">
+            <Input type="time" value={attendance.lateAfter}
+              onChange={e => setAttendance(p => ({ ...p, lateAfter: e.target.value }))} style={{ width: 140 }} />
+          </Field>
+          <Field label="Very late arrival after">
+            <Input type="time" value={attendance.veryLateAfter}
+              onChange={e => setAttendance(p => ({ ...p, veryLateAfter: e.target.value }))} style={{ width: 140 }} />
+          </Field>
+          <Field label="Lunch window start">
+            <Input type="time" value={attendance.lunchStart}
+              onChange={e => setAttendance(p => ({ ...p, lunchStart: e.target.value }))} style={{ width: 140 }} />
+          </Field>
+          <Field label="Lunch window end">
+            <Input type="time" value={attendance.lunchEnd}
+              onChange={e => setAttendance(p => ({ ...p, lunchEnd: e.target.value }))} style={{ width: 140 }} />
+          </Field>
+          <Field label="Miss punch threshold (hours)">
+            <Input type="number" min="1" max="8" value={attendance.missPunchHours}
+              onChange={e => setAttendance(p => ({ ...p, missPunchHours: e.target.value }))} style={{ width: 80 }} />
+          </Field>
+          <Field label="Daily work target (hours)">
+            <Input type="number" min="1" max="12" value={attendance.targetHours}
+              onChange={e => setAttendance(p => ({ ...p, targetHours: e.target.value }))} style={{ width: 80 }} />
+          </Field>
+          <Field label="Daily reset time">
+            <Input type="time" value={attendance.dailyResetTime}
+              onChange={e => setAttendance(p => ({ ...p, dailyResetTime: e.target.value }))} style={{ width: 140 }} />
+          </Field>
+          <SaveBtn onClick={() => save('attendance')} saved={saved.attendance} />
+        </SECTION>
+      )}
 
-      {/* Company Info */}
-      <SECTION title="Company Information">
-        <Field label="Company name">
-          <Input value={company.name}
-            onChange={e => setCompany(p => ({ ...p, name: e.target.value }))} />
-        </Field>
-        <Field label="Address">
-          <Input value={company.address} placeholder="Office address"
-            onChange={e => setCompany(p => ({ ...p, address: e.target.value }))} />
-        </Field>
-        <Field label="Phone">
-          <Input value={company.phone} placeholder="+91 ..."
-            onChange={e => setCompany(p => ({ ...p, phone: e.target.value }))} />
-        </Field>
-        <Field label="Admin email">
-          <Input type="email" value={company.email}
-            onChange={e => setCompany(p => ({ ...p, email: e.target.value }))} />
-        </Field>
-        <Field label="Timezone">
-          <select value={company.timezone}
-            onChange={e => setCompany(p => ({ ...p, timezone: e.target.value }))}
-            style={{ padding: '7px 11px', borderRadius: 7, border: '1.5px solid #e2e8f0', fontSize: 13, color: '#1e293b', background: '#f8fafc' }}>
-            <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
-            <option value="Asia/Dubai">Asia/Dubai (GST +4:00)</option>
-            <option value="UTC">UTC</option>
-          </select>
-        </Field>
-        <SaveBtn onClick={() => save('company')} saved={saved.company} />
-      </SECTION>
+      {/* Company Info — admin only */}
+      {isAdmin && (
+        <SECTION title="Company Information">
+          <Field label="Company name">
+            <Input value={company.name}
+              onChange={e => setCompany(p => ({ ...p, name: e.target.value }))} />
+          </Field>
+          <Field label="Address">
+            <Input value={company.address} placeholder="Office address"
+              onChange={e => setCompany(p => ({ ...p, address: e.target.value }))} />
+          </Field>
+          <Field label="Phone">
+            <Input value={company.phone} placeholder="+91 ..."
+              onChange={e => setCompany(p => ({ ...p, phone: e.target.value }))} />
+          </Field>
+          <Field label="Admin email">
+            <Input type="email" value={company.email}
+              onChange={e => setCompany(p => ({ ...p, email: e.target.value }))} />
+          </Field>
+          <Field label="Timezone">
+            <select value={company.timezone}
+              onChange={e => setCompany(p => ({ ...p, timezone: e.target.value }))}
+              style={{ padding: '7px 11px', borderRadius: 7, border: '1.5px solid #e2e8f0', fontSize: 13, color: '#1e293b', background: '#f8fafc' }}>
+              <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
+              <option value="Asia/Dubai">Asia/Dubai (GST +4:00)</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </Field>
+          <SaveBtn onClick={() => save('company')} saved={saved.company} />
+        </SECTION>
+      )}
 
       {/* Change Password */}
-      <SECTION title="Change Admin Password">
+      <SECTION title="Change Password">
         <Field label="Current password">
           <Input type="password" value={password.current} placeholder="••••••••"
             onChange={e => setPassword(p => ({ ...p, current: e.target.value }))} style={{ width: 240 }} />

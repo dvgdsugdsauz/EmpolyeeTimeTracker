@@ -9,6 +9,7 @@ const NAV_MANAGER = [
   { id: 'reports',      label: 'Reports',        icon: 'bar-chart' },
   { id: 'attendance',   label: 'My Attendance',  icon: 'calendar' },
   { id: 'notifications',label: 'Approvals',       icon: 'bell' },
+  { id: 'settings',     label: 'Settings',       icon: 'settings' },
 ]
 
 const NAV_ADMIN = [

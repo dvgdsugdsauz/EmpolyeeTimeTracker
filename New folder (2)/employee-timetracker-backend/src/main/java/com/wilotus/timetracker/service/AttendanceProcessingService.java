@@ -300,51 +300,54 @@ public class AttendanceProcessingService {
 
     private void buildDailySummaryFromRaw(String employeeId, LocalDate date) {
         List<AttendanceRaw> punches = rawRepo.findByEmployeeIdAndPunchTimeBetweenOrderByPunchTimeAsc(
-                employeeId,
-                date.atStartOfDay(),
-                date.atTime(23, 59, 59));
-
+                employeeId, date.atStartOfDay(), date.atTime(23, 59, 59));
         if (punches.isEmpty()) return;
 
-        LocalTime   entryTime    = null;
-        LocalTime   exitTime     = null;
-        long        totalWorkMs  = 0;
-        long        totalBreakMs = 0;
-        long        totalLunchMs = 0;
-        String      lateStatus   = "NORMAL";
-        LocalDateTime lastIn     = null;
-        LocalDateTime lastOut    = null;
-        String      finalStatus  = "ABSENT";
+        int n = punches.size();
 
-        for (AttendanceRaw p : punches) {
-            LocalDateTime t = p.getPunchTime();
-            if (p.getPunchState() == 0) {           // ── PUNCH IN
-                if (entryTime == null) {
-                    entryTime  = t.toLocalTime();
-                    lateStatus = calculateLateStatus(entryTime);
+        // Login = first IN punch, Logout = last OUT punch
+        LocalTime entryTime = null, exitTime = null;
+        for (AttendanceRaw p : punches)
+            if (p.getPunchState() == 0) { entryTime = p.getPunchTime().toLocalTime(); break; }
+        for (int i = n - 1; i >= 0; i--)
+            if (punches.get(i).getPunchState() == 1) { exitTime = punches.get(i).getPunchTime().toLocalTime(); break; }
+        if (entryTime == null) entryTime = punches.get(0).getPunchTime().toLocalTime();
+
+        String lateStatus = calculateLateStatus(entryTime);
+
+        // Actual work = sum of IN→OUT pairs (strict positional: index 0+1, 2+3, 4+5 …)
+        long totalWorkMs  = 0;
+        long totalBreakMs = 0;
+        long totalLunchMs = 0;
+
+        List<LocalDateTime[]> pairs = new java.util.ArrayList<>();
+        for (int i = 0; i + 1 < n; i += 2) {
+            AttendanceRaw a = punches.get(i), b = punches.get(i + 1);
+            if (a.getPunchState() == 0 && b.getPunchState() == 1) {
+                long seg = Duration.between(a.getPunchTime(), b.getPunchTime()).toMillis();
+                if (seg > 0) {
+                    totalWorkMs += seg;
+                    pairs.add(new LocalDateTime[]{a.getPunchTime(), b.getPunchTime()});
                 }
-                // Accumulate break / lunch time since last punch-out
-                if (lastOut != null) {
-                    long outsideMs = Duration.between(lastOut, t).toMillis();
-                    if (isLunchWindow(lastOut.toLocalTime())) totalLunchMs += outsideMs;
-                    else                                      totalBreakMs += outsideMs;
-                }
-                lastIn = t;
-                finalStatus = "PRESENT"; // employee punched in — treat as present for historical view
-            } else {                                // ── PUNCH OUT
-                exitTime = t.toLocalTime();
-                if (lastIn != null) {
-                    totalWorkMs += Duration.between(lastIn, t).toMillis();
-                    lastIn = null;
-                }
-                lastOut = t;
-                finalStatus = "OFFLINE";
             }
         }
 
+        // Gaps between consecutive pairs = break or lunch time
+        for (int i = 1; i < pairs.size(); i++) {
+            LocalDateTime gapStart = pairs.get(i - 1)[1]; // previous OUT
+            LocalDateTime gapEnd   = pairs.get(i)[0];     // next IN
+            long gapMs = Duration.between(gapStart, gapEnd).toMillis();
+            if (gapMs <= 0) continue;
+            if (isLunchWindow(gapStart.toLocalTime())) totalLunchMs += gapMs;
+            else                                        totalBreakMs += gapMs;
+        }
+
+        // OFFLINE if last punch is OUT, else PRESENT
+        String finalStatus = pairs.isEmpty() ? "ABSENT"
+                : (punches.get(n - 1).getPunchState() == 1 ? "OFFLINE" : "PRESENT");
+
         AttendanceDailySummary summary = summaryRepo.findByEmployeeIdAndDate(employeeId, date)
-                .orElseGet(() -> AttendanceDailySummary.builder()
-                        .employeeId(employeeId).date(date).build());
+                .orElseGet(() -> AttendanceDailySummary.builder().employeeId(employeeId).date(date).build());
         summary.setEntryTime(entryTime);
         summary.setExitTime(exitTime);
         summary.setTotalWorkMs(totalWorkMs);
@@ -353,7 +356,8 @@ public class AttendanceProcessingService {
         summary.setLateStatus(lateStatus);
         summary.setStatus(finalStatus);
         summaryRepo.save(summary);
-        log.debug("Historical summary built: emp={} date={} work={}ms status={}", employeeId, date, totalWorkMs, finalStatus);
+        log.debug("Summary built: emp={} date={} work={}ms break={}ms lunch={}ms status={}",
+                employeeId, date, totalWorkMs, totalBreakMs, totalLunchMs, finalStatus);
     }
 
     // ── Admin: fix raw punch states and rebuild all daily summaries ─────────────

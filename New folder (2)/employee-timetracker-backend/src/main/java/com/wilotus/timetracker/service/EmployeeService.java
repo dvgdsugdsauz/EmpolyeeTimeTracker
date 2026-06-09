@@ -72,6 +72,14 @@ public class EmployeeService {
     }
 
     @Transactional
+    public void resetPassword(String id, String newPassword) {
+        Employee emp = employeeRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
+        emp.setPassword(passwordEncoder.encode(newPassword));
+        employeeRepo.save(emp);
+    }
+
+    @Transactional
     public void deactivate(String id) {
         employeeRepo.findById(id).ifPresent(emp -> {
             emp.setActive(false);
