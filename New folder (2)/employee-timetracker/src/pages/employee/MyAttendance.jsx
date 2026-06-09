@@ -4,7 +4,7 @@ import { formatDuration, formatDateLabel } from '../../utils/timeUtils'
 import * as api from '../../services/api'
 
 const USE_API = Boolean(import.meta.env.VITE_API_URL)
-const MIN_YEAR = 2023   // oldest data year from MDB migration
+// Employee can view only last 1 month of their own data
 
 function timeStr(t) {
   if (!t) return null
@@ -55,22 +55,22 @@ export default function MyAttendance({ user }) {
     }
   }, [user?.id, year, month])
 
+  const oldestAllowed = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+
   const goBack = () => {
-    const isOldestMonth = year === MIN_YEAR && month === 0
     if (isOldestMonth) return
     if (month === 0) { setMonth(11); setYear(y => y - 1) }
     else setMonth(m => m - 1)
   }
 
   const goForward = () => {
-    const isCurrentMonth = year === today.getFullYear() && month === today.getMonth()
     if (isCurrentMonth) return
     if (month === 11) { setMonth(0); setYear(y => y + 1) }
     else setMonth(m => m + 1)
   }
 
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth()
-  const isOldestMonth  = year === MIN_YEAR && month === 0
+  const isOldestMonth  = year === oldestAllowed.getFullYear() && month === oldestAllowed.getMonth()
 
   const filtered = filter === 'All' ? monthHistory : monthHistory.filter(h => h.status === filter)
 

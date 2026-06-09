@@ -98,7 +98,7 @@ public class AttendanceController {
         return ResponseEntity.ok(result);
     }
 
-    // Employee's own history — supports ?days=N OR ?from=YYYY-MM-DD&to=YYYY-MM-DD
+    // Employee's own history — max 1 month back enforced server-side
     @GetMapping("/my/history")
     public ResponseEntity<List<AttendanceSummaryDto>> getMyHistory(
             Authentication auth,
@@ -109,10 +109,18 @@ public class AttendanceController {
         String username = auth.getName();
         Employee emp = employeeRepo.findByUsernameOrEmail(username, username).orElseThrow();
 
+        LocalDate today    = LocalDate.now();
+        LocalDate earliest = today.withDayOfMonth(1).minusMonths(1); // first day of last month
+
         if (from == null || to == null) {
-            to   = LocalDate.now();
+            to   = today;
             from = to.minusDays(days != null ? days : 30);
         }
+
+        // Enforce: employee cannot request data older than 1 month back
+        if (from.isBefore(earliest)) from = earliest;
+        if (to.isAfter(today))       to   = today;
+
         List<AttendanceDailySummary> summaries =
                 summaryRepo.findByEmployeeIdAndDateBetweenOrderByDateDesc(emp.getId(), from, to);
 
