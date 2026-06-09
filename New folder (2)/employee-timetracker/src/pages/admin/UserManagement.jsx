@@ -2,7 +2,14 @@ import { useState } from 'react'
 import { resetEmployeePassword } from '../../services/api'
 
 const USE_API = Boolean(import.meta.env.VITE_API_URL)
-const EMPTY_FORM = { name: '', email: '', username: '', dept: '', role: 'employee', password: '' }
+
+const DEPARTMENTS = [
+  'Product & Engineering',
+  'Security & Infrastructure',
+  'Operations & Enablement',
+]
+
+const EMPTY_FORM = { name: '', email: '', username: '', dept: '', designation: '', role: 'employee', password: '' }
 
 const ROLE_COLORS = { employee: '#4f46e5', manager: '#0891b2', admin: '#7c3aed' }
 
@@ -71,12 +78,13 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
   const openEdit = (u) => {
     setEditUser(u)
     setEditForm({
-      name:     u.name     || '',
-      dept:     u.dept     || '',
-      role:     u.role     || 'employee',
-      email:    u.email    || '',
-      username: u.username || '',
-      password: '',
+      name:        u.name        || '',
+      dept:        u.dept        || '',
+      designation: u.designation || '',
+      role:        u.role        || 'employee',
+      email:       u.email       || '',
+      username:    u.username    || '',
+      password:    '',
     })
     setEditError('')
   }
@@ -144,11 +152,16 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                   <td>
                     <div className="table-emp-cell">
                       <div className="table-avatar">{u.avatar}</div>
-                      <span className="table-emp-name">{u.name}</span>
+                      <div>
+                        <div className="table-emp-name">{u.name}</div>
+                        {u.designation && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 1 }}>{u.designation}</div>}
+                      </div>
                     </div>
                   </td>
                   <td><code className="id-code">{u.id}</code></td>
-                  <td>{u.dept}</td>
+                  <td>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{u.dept}</div>
+                  </td>
                   <td><RoleBadge role={u.role} /></td>
                   <td className="text-muted">{u.email}</td>
                   <td>
@@ -207,7 +220,10 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                 </div>
                 <div className="form-group">
                   <label>Department</label>
-                  <input value={form.dept} onChange={e => setForm({...form, dept: e.target.value})} placeholder="Engineering" required />
+                  <select value={form.dept} onChange={e => setForm({...form, dept: e.target.value})} required>
+                    <option value="">Select department</option>
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label>Role</label>
@@ -216,6 +232,10 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                     <option value="manager">Manager</option>
                     <option value="admin">Admin</option>
                   </select>
+                </div>
+                <div className="form-group form-col-span-2">
+                  <label>Designation</label>
+                  <input value={form.designation} onChange={e => setForm({...form, designation: e.target.value})} placeholder="e.g. Software Engineer - Backend" />
                 </div>
                 <div className="form-group">
                   <label>Password</label>
@@ -252,7 +272,10 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                 </div>
                 <div className="form-group">
                   <label>Department</label>
-                  <input value={editForm.dept} onChange={e => setEditForm({...editForm, dept: e.target.value})} required />
+                  <select value={editForm.dept} onChange={e => setEditForm({...editForm, dept: e.target.value})} required>
+                    <option value="">Select department</option>
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label>Email</label>
@@ -265,6 +288,10 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                     <option value="manager">Manager</option>
                     <option value="admin">Admin</option>
                   </select>
+                </div>
+                <div className="form-group form-col-span-2">
+                  <label>Designation</label>
+                  <input value={editForm.designation} onChange={e => setEditForm({...editForm, designation: e.target.value})} placeholder="e.g. Senior Database Administrator - Lead" />
                 </div>
                 <div className="form-group form-col-span-2">
                   <label>New Password <span style={{ color: '#9ca3af', fontWeight: 400 }}>(leave blank to keep current)</span></label>

@@ -74,6 +74,7 @@ export default function EmployeeDashboard({ user, attendance }) {
             </div>
           )}
           <h2 className="emp-welcome">Good day, {user.name.split(' ')[0]}</h2>
+          {user.designation && <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0', fontWeight: 500 }}>{user.designation}</p>}
           <p className="emp-dept">{user.dept} &nbsp;·&nbsp; {user.id}</p>
         </div>
         <div className="emp-status-right">

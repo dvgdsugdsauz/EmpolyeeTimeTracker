@@ -40,6 +40,7 @@ const PAGE_TITLES = {
 function transformApiData(liveList) {
   const users = liveList.map(d => ({
     id: d.id, name: d.name, dept: d.dept,
+    designation: d.designation,
     avatar: d.avatar, role: d.role,
     email: d.email, username: d.username,
   }))

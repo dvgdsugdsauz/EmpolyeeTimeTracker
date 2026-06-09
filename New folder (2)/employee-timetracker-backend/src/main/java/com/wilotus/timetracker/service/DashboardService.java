@@ -103,6 +103,7 @@ public class DashboardService {
             dto.setEmail(emp.getEmail());
             dto.setUsername(emp.getUsername());
             dto.setDept(emp.getDept());
+            dto.setDesignation(emp.getDesignation());
             dto.setAvatar(emp.getAvatar());
             dto.setRole(emp.getRole());
 

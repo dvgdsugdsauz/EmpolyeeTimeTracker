@@ -11,6 +11,7 @@ public class LiveStatusDto {
     private String email;
     private String username;
     private String dept;
+    private String designation;
     private String avatar;
     private String role;
 

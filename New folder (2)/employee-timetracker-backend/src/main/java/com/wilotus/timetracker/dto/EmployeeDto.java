@@ -11,6 +11,7 @@ public class EmployeeDto {
     private String password; // only for create/update — never returned
     private String role;
     private String dept;
+    private String designation;
     private String avatar;
     private boolean active;
 }

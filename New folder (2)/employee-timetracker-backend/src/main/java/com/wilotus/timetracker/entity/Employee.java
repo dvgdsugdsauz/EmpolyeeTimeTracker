@@ -31,6 +31,7 @@ public class Employee {
     private String role; // employee | manager | admin
 
     private String dept;
+    private String designation;
     private String avatar;
 
     // ZKTeco enrollment number (e.g. "1", "2") — set this when enrolling in device

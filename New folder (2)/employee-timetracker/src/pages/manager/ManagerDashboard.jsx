@@ -321,6 +321,7 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
                             <div className="ta-avatar">{emp.avatar}</div>
                             <div>
                               <div className="ta-emp-name">{emp.name}</div>
+                              {emp.designation && <div style={{ fontSize: 11, color: '#475569', fontWeight: 500 }}>{emp.designation}</div>}
                               <div className="ta-emp-dept">{emp.dept}</div>
                             </div>
                           </div>
@@ -364,6 +365,7 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
                           <div className="ta-avatar">{emp.avatar}</div>
                           <div>
                             <div className="ta-emp-name">{emp.name}</div>
+                            {emp.designation && <div style={{ fontSize: 11, color: '#475569', fontWeight: 500 }}>{emp.designation}</div>}
                             <div className="ta-emp-dept">{emp.dept}</div>
                           </div>
                         </div>

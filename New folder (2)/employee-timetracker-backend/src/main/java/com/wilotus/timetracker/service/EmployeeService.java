@@ -39,6 +39,7 @@ public class EmployeeService {
                 .password(passwordEncoder.encode(dto.getPassword()))
                 .role(dto.getRole())
                 .dept(dto.getDept())
+                .designation(dto.getDesignation())
                 .avatar(dto.getAvatar())
                 .active(true)
                 .build();
@@ -62,6 +63,7 @@ public class EmployeeService {
 
         emp.setName(dto.getName());
         emp.setDept(dto.getDept());
+        emp.setDesignation(dto.getDesignation());
         emp.setAvatar(dto.getAvatar());
         emp.setRole(dto.getRole());
         if (dto.getEmail() != null && !dto.getEmail().isBlank())
@@ -95,6 +97,7 @@ public class EmployeeService {
         dto.setUsername(emp.getUsername());
         dto.setRole(emp.getRole());
         dto.setDept(emp.getDept());
+        dto.setDesignation(emp.getDesignation());
         dto.setAvatar(emp.getAvatar());
         dto.setActive(emp.isActive());
         // password deliberately not returned
