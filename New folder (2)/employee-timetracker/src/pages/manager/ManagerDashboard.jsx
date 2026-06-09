@@ -299,6 +299,7 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
                   <th>ID</th>
                   <th>Clock In</th>
                   <th>Clock Out</th>
+                  <th>Presence</th>
                   <th>Break</th>
                   <th>Lunch</th>
                   <th>Work Duration</th>
@@ -327,6 +328,13 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
                         <td><span style={{ fontSize: 12, color: '#6b7280', fontFamily: 'monospace' }}>{emp.id}</span></td>
                         <td>{s?.entryTime ? <div className="ta-time-box ta-time-normal">{formatLocalTime(s.entryTime)}</div> : <span className="ta-dash">—</span>}</td>
                         <td>{s?.exitTime  ? <div className="ta-time-box ta-time-normal">{formatLocalTime(s.exitTime)}</div>  : <span className="ta-dash">—</span>}</td>
+                        <td><span className="ta-duration-text">{(() => {
+                          if (!s?.entryTime || !s?.exitTime) return '—'
+                          const et = Array.isArray(s.entryTime) ? s.entryTime[0]*60+s.entryTime[1] : parseInt(String(s.entryTime).slice(0,2))*60+parseInt(String(s.entryTime).slice(3,5))
+                          const xt = Array.isArray(s.exitTime)  ? s.exitTime[0]*60+s.exitTime[1]   : parseInt(String(s.exitTime).slice(0,2))*60+parseInt(String(s.exitTime).slice(3,5))
+                          const m = xt - et
+                          return m > 0 ? `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m` : '—'
+                        })()}</span></td>
                         <td><span className="ta-duration-text">{s?.totalBreakMs > 0 ? formatDuration(s.totalBreakMs) : '—'}</span></td>
                         <td><span className="ta-duration-text">{s?.totalLunchMs > 0 ? formatDuration(s.totalLunchMs) : '—'}</span></td>
                         <td><span className={`ta-shift-duration ${s?.totalWorkMs > 8*3600000 ? 'ta-shift-ot' : s?.totalWorkMs > 0 ? 'ta-shift-ok' : ''}`}>{s?.totalWorkMs > 0 ? formatDuration(s.totalWorkMs) : '—'}</span></td>
@@ -369,6 +377,7 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
                           ? <div className={`ta-time-box ta-time-${att.status === 'WORKING' ? 'normal' : shade}`}>{formatTime12(att.lastPunchOut)}</div>
                           : att?.status === 'WORKING' ? <span className="ta-live-pill">Live</span> : <span className="ta-dash">—</span>}
                       </td>
+                      <td><span className="ta-duration-text">{att?.entryTime ? formatDuration(now - new Date(att.entryTime).getTime()) : '—'}</span></td>
                       <td><span className="ta-duration-text">{breakMs > 0 ? formatDuration(breakMs) : '—'}</span></td>
                       <td><span className="ta-duration-text">{lunchMs > 0 ? formatDuration(lunchMs) : '—'}</span></td>
                       <td><span className={`ta-shift-duration ${workMs > 8*3600000 ? 'ta-shift-ot' : workMs > 0 ? 'ta-shift-ok' : ''}`}>{workMs > 0 ? formatDuration(workMs) : '—'}</span></td>
