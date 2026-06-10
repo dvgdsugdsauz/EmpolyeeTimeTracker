@@ -27,7 +27,6 @@ function getSession() {
 const PAGE_TITLES = {
   dashboard:     'Dashboard',
   live:          'Live Monitor',
-  breaks:        'Break Monitor',
   reports:       'Reports & Export',
   attendance:    'My Attendance',
   notifications: 'Approvals',
@@ -404,17 +403,6 @@ export default function App() {
             : <ManagerDashboard users={users} attendance={attendance} myAttendance={myAttendance} currentUser={user} onApproveOffline={handleApproveOffline} />
         case 'live':
           return <ManagerDashboard users={users} attendance={attendance} myAttendance={myAttendance} currentUser={user} onApproveOffline={handleApproveOffline} />
-        case 'breaks':
-          return (
-            <ManagerDashboard
-              users={users}
-              attendance={attendance}
-              myAttendance={myAttendance}
-              currentUser={user}
-              onApproveOffline={handleApproveOffline}
-              defaultStatusFilter="BREAK"
-            />
-          )
         case 'reports':
           return <Reports users={users} attendance={attendance} />
         case 'employees':

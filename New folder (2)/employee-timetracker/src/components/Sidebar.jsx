@@ -5,7 +5,6 @@ const NAV_EMPLOYEE = [
 
 const NAV_MANAGER = [
   { id: 'live',         label: 'Live Monitor',   icon: 'monitor' },
-  { id: 'breaks',       label: 'Break Monitor',  icon: 'coffee' },
   { id: 'reports',      label: 'Reports',        icon: 'bar-chart' },
   { id: 'attendance',   label: 'My Attendance',  icon: 'calendar' },
   { id: 'notifications',label: 'Approvals',       icon: 'bell' },
