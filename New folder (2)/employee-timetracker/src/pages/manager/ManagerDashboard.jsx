@@ -251,8 +251,6 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
               <option value="All">All Status</option>
               {isToday ? <>
                 <option value="WORKING">Working</option>
-                <option value="BREAK">Break</option>
-                <option value="LUNCH">Lunch</option>
                 <option value="MISS_PUNCH">Miss Punch</option>
                 <option value="NOT_ARRIVED">Not Arrived</option>
                 <option value="OFFLINE">Offline</option>
@@ -279,8 +277,7 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
       <div className="ta-summary-chips">
         <div className="ta-chip ta-chip-total"><span>{counts.total}</span> Total</div>
         <div className="ta-chip ta-chip-working"><span>{counts.working}</span> {isToday ? 'Working' : 'Present'}</div>
-        {isToday && <><div className="ta-chip ta-chip-outside"><span>{counts.outside}</span> Outside</div>
-        <div className="ta-chip ta-chip-miss"><span>{counts.miss}</span> Miss Punch</div></>}
+        {isToday && <div className="ta-chip ta-chip-miss"><span>{counts.miss}</span> Miss Punch</div>}
         <div className="ta-chip ta-chip-away"><span>{counts.notArrived}</span> {isToday ? 'Not Arrived' : 'Absent'}</div>
       </div>
 
@@ -300,12 +297,9 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
                   <th>Clock In</th>
                   <th>Clock Out</th>
                   <th>Presence</th>
-                  <th>Break</th>
-                  <th>Lunch</th>
                   <th>Work Duration</th>
                   <th>Status</th>
                   <th>Late</th>
-                  {isToday && <th>Outside For</th>}
                 </tr>
               </thead>
               <tbody>
@@ -336,8 +330,6 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
                           const m = xt - et
                           return m > 0 ? `${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m` : '—'
                         })()}</span></td>
-                        <td><span className="ta-duration-text">{s?.totalBreakMs > 0 ? formatDuration(s.totalBreakMs) : '—'}</span></td>
-                        <td><span className="ta-duration-text">{s?.totalLunchMs > 0 ? formatDuration(s.totalLunchMs) : '—'}</span></td>
                         <td><span className={`ta-shift-duration ${s?.totalWorkMs > 8*3600000 ? 'ta-shift-ot' : s?.totalWorkMs > 0 ? 'ta-shift-ok' : ''}`}>{s?.totalWorkMs > 0 ? formatDuration(s.totalWorkMs) : '—'}</span></td>
                         <td><div className="status-dot-badge" style={{ background: meta.bg, color: meta.color }}><span className="sdot" style={{ background: meta.dot }}/>{meta.label}</div></td>
                         <td>
@@ -380,19 +372,12 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
                           : att?.status === 'WORKING' ? <span className="ta-live-pill">Live</span> : <span className="ta-dash">—</span>}
                       </td>
                       <td><span className="ta-duration-text">{att?.entryTime ? formatDuration(now - new Date(att.entryTime).getTime()) : '—'}</span></td>
-                      <td><span className="ta-duration-text">{breakMs > 0 ? formatDuration(breakMs) : '—'}</span></td>
-                      <td><span className="ta-duration-text">{lunchMs > 0 ? formatDuration(lunchMs) : '—'}</span></td>
                       <td><span className={`ta-shift-duration ${workMs > 8*3600000 ? 'ta-shift-ot' : workMs > 0 ? 'ta-shift-ok' : ''}`}>{workMs > 0 ? formatDuration(workMs) : '—'}</span></td>
                       <td><div className="status-dot-badge" style={{ background: meta.bg, color: meta.color }}><span className="sdot" style={{ background: meta.dot }}/>{meta.label}</div></td>
                       <td>
                         {att?.lateStatus && (att.lateStatus === 'LATE' || att.lateStatus === 'VERY_LATE')
                           ? <span className="late-tag" style={{ color: att.lateStatus === 'LATE' ? '#f97316' : '#ef4444', background: att.lateStatus === 'LATE' ? '#ffedd5' : '#fee2e2' }}>{att.lateStatus === 'LATE' ? 'Late' : 'Very Late'}</span>
                           : att?.entryTime ? <span className="ta-ontime">On Time</span> : <span className="ta-dash">—</span>}
-                      </td>
-                      <td>
-                        {outsideMs > 0
-                          ? <span style={{ color: meta.color, fontWeight: 600, fontSize: 13 }}>{formatDuration(outsideMs)}</span>
-                          : <span className="ta-dash">—</span>}
                       </td>
                     </tr>
                   )
