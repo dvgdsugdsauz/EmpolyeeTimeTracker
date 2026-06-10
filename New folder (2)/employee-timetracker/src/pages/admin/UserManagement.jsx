@@ -26,7 +26,7 @@ const DESIGNATIONS = [
   'HR Manager',
 ]
 
-const EMPTY_FORM = { name: '', email: '', username: '', dept: '', designation: '', role: 'employee', password: '' }
+const EMPTY_FORM = { id: '', name: '', email: '', username: '', dept: '', designation: '', role: 'employee', password: '' }
 
 const ROLE_COLORS = { employee: '#4f46e5', manager: '#0891b2', admin: '#7c3aed' }
 
@@ -77,19 +77,23 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
     return matchRole && matchSearch
   })
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault()
     setError('')
-    if (!form.name || !form.email || !form.dept || !form.password) {
+    if (!form.id || !form.name || !form.email || !form.dept || !form.password) {
       setError('All fields are required.')
       return
     }
-    onAddUser({
-      ...form,
-      avatar: form.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
-    })
-    setForm(EMPTY_FORM)
-    setShowAddForm(false)
+    try {
+      await onAddUser({
+        ...form,
+        avatar: form.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
+      })
+      setForm(EMPTY_FORM)
+      setShowAddForm(false)
+    } catch (err) {
+      setError(err.message || 'Failed to create user. Check Employee ID or username.')
+    }
   }
 
   const openEdit = (u) => {
@@ -223,6 +227,10 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
             </div>
             <form onSubmit={handleAdd} className="modal-form">
               <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Employee ID</label>
+                  <input value={form.id} onChange={e => setForm({...form, id: e.target.value})} placeholder="e.g. 10175" required />
+                </div>
                 <div className="form-group">
                   <label>Full Name</label>
                   <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="John Smith" required />

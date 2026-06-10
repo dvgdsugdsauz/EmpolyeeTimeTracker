@@ -281,16 +281,11 @@ export default function App() {
   // ── Employee CRUD ──────────────────────────────────────────────────────
   const handleAddUser = async (formData) => {
     if (apiMode.current) {
-      try {
-        const created = await api.createEmployee(formData)
-        setUsers(prev => [...prev, { ...created, fromApi: true }])
-        return
-      } catch {/* fall through */}
+      const created = await api.createEmployee(formData)
+      setUsers(prev => [...prev, { ...created, fromApi: true }])
+      return
     }
-    const prefix = formData.role === 'admin' ? 'ADM' : formData.role === 'manager' ? 'MGR' : 'EMP'
-    const count  = users.filter(u => u.role === formData.role).length + 1
-    const id     = `${prefix}${String(count).padStart(3, '0')}`
-    setUsers(prev => [...prev, { ...formData, id }])
+    setUsers(prev => [...prev, { ...formData }])
   }
 
   const handleEditUser = async (id, formData) => {
