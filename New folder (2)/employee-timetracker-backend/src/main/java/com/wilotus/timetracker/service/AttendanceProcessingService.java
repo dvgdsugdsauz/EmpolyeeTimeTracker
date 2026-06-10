@@ -182,30 +182,25 @@ public class AttendanceProcessingService {
         for (EmployeeLiveStatus live : allLive) {
             if (yWeekend) {
                 saveHolidaySummary(live.getEmployeeId(), yesterday);
-            } else {
-                // Finalize yesterday's live status into a historical status
-                String finalStatus = live.getStatus();
-                // Any "active" state at midnight means employee was present but didn't punch out
-                if ("WORKING".equals(finalStatus) || "BREAK".equals(finalStatus)
-                        || "LUNCH".equals(finalStatus) || "MISS_PUNCH".equals(finalStatus)) {
-                    finalStatus = "PRESENT";
-                } else if ("NOT_ARRIVED".equals(finalStatus)) {
-                    finalStatus = "ABSENT";
-                }
-                // OFFLINE stays as OFFLINE (employee punched out properly)
-
+            } else if ("NOT_ARRIVED".equals(live.getStatus())) {
+                // No punches at all — mark ABSENT
                 AttendanceDailySummary summary = summaryRepo
                         .findByEmployeeIdAndDate(live.getEmployeeId(), yesterday)
                         .orElseGet(() -> AttendanceDailySummary.builder()
                                 .employeeId(live.getEmployeeId()).date(yesterday).build());
-                summary.setEntryTime(live.getEntryTime() != null ? live.getEntryTime().toLocalTime() : null);
-                summary.setExitTime(live.getLastPunchOut() != null ? live.getLastPunchOut().toLocalTime() : null);
-                summary.setTotalWorkMs(live.getTotalWorkMs());
-                summary.setTotalBreakMs(live.getTotalBreakMs());
-                summary.setTotalLunchMs(live.getTotalLunchMs());
-                summary.setLateStatus(live.getLateStatus());
-                summary.setStatus(finalStatus);
+                summary.setStatus("ABSENT");
+                summary.setLateStatus("NORMAL");
+                summary.setTotalWorkMs(0);
+                summary.setTotalBreakMs(0);
+                summary.setTotalLunchMs(0);
                 summaryRepo.save(summary);
+            } else {
+                // Rebuild from raw punches using correct dedup formula — same logic as
+                // buildDailySummaryFromRaw so live path and historical path are consistent.
+                summaryRepo.findByEmployeeIdAndDate(live.getEmployeeId(), yesterday)
+                           .ifPresent(summaryRepo::delete);
+                summaryRepo.flush();
+                buildDailySummaryFromRaw(live.getEmployeeId(), yesterday);
             }
 
             // Reset live status for new day
