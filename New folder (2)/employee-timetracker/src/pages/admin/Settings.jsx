@@ -181,19 +181,6 @@ export default function Settings({ role = 'admin' }) {
         <SaveBtn onClick={handleSavePassword} saved={pwSaved} />
       </SECTION>
 
-      {/* System Info */}
-      <SECTION title="System Information">
-        <Field label="Application version"><span style={{ fontSize: 13, color: '#475569' }}>v1.0.0</span></Field>
-        <Field label="Backend"><span style={{ fontSize: 13, color: '#475569' }}>Spring Boot 3.2.5</span></Field>
-        <Field label="Database"><span style={{ fontSize: 13, color: '#475569' }}>PostgreSQL — 192.168.1.104:5432</span></Field>
-        <Field label="Frontend"><span style={{ fontSize: 13, color: '#475569' }}>React 19 + Vite</span></Field>
-        <Field label="Mode">
-          <span style={{
-            fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-            background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0'
-          }}>LAN Mode</span>
-        </Field>
-      </SECTION>
 
     </div>
   )
