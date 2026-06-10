@@ -12,8 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -303,44 +303,42 @@ public class AttendanceProcessingService {
                 employeeId, date.atStartOfDay(), date.atTime(23, 59, 59));
         if (punches.isEmpty()) return;
 
-        int n = punches.size();
+        // Step 1: Deduplicate by minute.
+        // ZKTeco devices occasionally send both IN and OUT at the same timestamp (ghost punches).
+        // When IN+OUT exist at the same minute, keep IN and discard OUT — this matches the
+        // official ZKTeco HR software behaviour and gives the correct work duration.
+        Map<LocalDateTime, AttendanceRaw> byMinute = new LinkedHashMap<>();
+        for (AttendanceRaw p : punches) {
+            LocalDateTime minute = p.getPunchTime().truncatedTo(ChronoUnit.MINUTES);
+            if (!byMinute.containsKey(minute) || p.getPunchState() == 0) {
+                byMinute.put(minute, p);
+            }
+        }
+        List<AttendanceRaw> deduped = new ArrayList<>(byMinute.values());
 
-        // First punch = Login, Last punch = Logout (state-agnostic — device states unreliable)
-        LocalDateTime firstPunch = punches.get(0).getPunchTime();
-        LocalDateTime lastPunch  = punches.get(n - 1).getPunchTime();
+        // Step 2: First/last from deduplicated list
+        LocalDateTime firstPunch = deduped.get(0).getPunchTime();
+        LocalDateTime lastPunch  = deduped.get(deduped.size() - 1).getPunchTime();
         LocalTime entryTime = firstPunch.toLocalTime();
         LocalTime exitTime  = lastPunch.toLocalTime();
+        String lateStatus   = calculateLateStatus(entryTime);
+        long presenceMs     = Duration.between(firstPunch, lastPunch).toMillis();
 
-        String lateStatus = calculateLateStatus(entryTime);
-
-        // Presence = last punch - first punch (gross span)
-        long presenceMs = Duration.between(firstPunch, lastPunch).toMillis();
-
-        // Positional pairs (0+1, 2+3 …) used only to find break gaps — state ignored
+        // Step 3: Sum state-based IN→OUT pairs (matching official HR software logic)
+        long totalWorkMs  = 0;
         long totalBreakMs = 0;
         long totalLunchMs = 0;
-        List<LocalDateTime[]> pairs = new java.util.ArrayList<>();
-        for (int i = 0; i + 1 < n; i += 2) {
-            LocalDateTime a = punches.get(i).getPunchTime();
-            LocalDateTime b = punches.get(i + 1).getPunchTime();
-            if (Duration.between(a, b).toMillis() > 0)
-                pairs.add(new LocalDateTime[]{a, b});
+        LocalDateTime sessionStart = null;
+        for (AttendanceRaw p : deduped) {
+            if (p.getPunchState() == 0 && sessionStart == null) {
+                sessionStart = p.getPunchTime();
+            } else if (p.getPunchState() == 1 && sessionStart != null) {
+                totalWorkMs += Duration.between(sessionStart, p.getPunchTime()).toMillis();
+                sessionStart = null;
+            }
         }
+        totalBreakMs = Math.max(0, presenceMs - totalWorkMs);
 
-        // Break = gaps between consecutive pairs
-        for (int i = 1; i < pairs.size(); i++) {
-            LocalDateTime gapStart = pairs.get(i - 1)[1];
-            LocalDateTime gapEnd   = pairs.get(i)[0];
-            long gapMs = Duration.between(gapStart, gapEnd).toMillis();
-            if (gapMs <= 0) continue;
-            if (isLunchWindow(gapStart.toLocalTime())) totalLunchMs += gapMs;
-            else                                        totalBreakMs += gapMs;
-        }
-
-        // Actual Work = Presence - Break  →  always ≤ Presence (validation guaranteed)
-        long totalWorkMs = Math.max(0, presenceMs - totalBreakMs - totalLunchMs);
-
-        // OFFLINE = has distinct entry+exit; PRESENT = single punch (didn't punch out)
         String finalStatus = (presenceMs > 0) ? "OFFLINE" : "PRESENT";
 
         AttendanceDailySummary summary = summaryRepo.findByEmployeeIdAndDate(employeeId, date)
@@ -353,8 +351,8 @@ public class AttendanceProcessingService {
         summary.setLateStatus(lateStatus);
         summary.setStatus(finalStatus);
         summaryRepo.save(summary);
-        log.debug("Summary built: emp={} date={} presence={}ms work={}ms break={}ms lunch={}ms status={}",
-                employeeId, date, presenceMs, totalWorkMs, totalBreakMs, totalLunchMs, finalStatus);
+        log.debug("Summary built: emp={} date={} presence={}ms work={}ms break={}ms status={}",
+                employeeId, date, presenceMs, totalWorkMs, totalBreakMs, finalStatus);
     }
 
     // ── Admin: fix raw punch states and rebuild all daily summaries ─────────────
@@ -431,7 +429,16 @@ public class AttendanceProcessingService {
                         return s;
                     });
 
-            for (AttendanceRaw punch : entry.getValue()) {
+            // Deduplicate by minute (same rule as buildDailySummaryFromRaw)
+            Map<LocalDateTime, AttendanceRaw> dedupMap = new LinkedHashMap<>();
+            for (AttendanceRaw p : entry.getValue()) {
+                LocalDateTime minute = p.getPunchTime().truncatedTo(ChronoUnit.MINUTES);
+                if (!dedupMap.containsKey(minute) || p.getPunchState() == 0) {
+                    dedupMap.put(minute, p);
+                }
+            }
+
+            for (AttendanceRaw punch : dedupMap.values()) {
                 if (punch.getPunchState() == 0) handlePunchIn(live, punch.getPunchTime());
                 else                            handlePunchOut(live, punch.getPunchTime());
             }

@@ -12,8 +12,6 @@ LATE_AFTER      = 9 * 60 + 15   # 09:15 in minutes
 VERY_LATE_AFTER = 10 * 60 + 0   # 10:00 in minutes
 TARGET_MS       = (9 * 3600 + 30 * 60) * 1000   # 9h 30m
 WEEKEND_DAYS    = {6, 7}  # Saturday=6, Sunday=7 (ISO weekday)
-LUNCH_START_MIN = 12 * 60 + 45  # 12:45
-LUNCH_END_MIN   = 14 * 60 + 0   # 14:00
 
 conn = psycopg2.connect(PG_CONN)
 cur = conn.cursor()
@@ -60,39 +58,33 @@ for (emp_id, work_date), punches in data.items():
     if not punches:
         continue
 
-    # First punch = Login, Last punch = Logout (state-agnostic — device states unreliable)
-    entry_time = punches[0][0]
-    exit_time  = punches[-1][0]
+    # Step 1: Deduplicate by minute.
+    # ZKTeco devices send both IN+OUT at same timestamp (ghost punches).
+    # When IN+OUT at same minute: keep IN, discard OUT (matches official HR software).
+    by_minute = {}
+    for punch_time, punch_state in punches:
+        minute_key = punch_time.replace(second=0, microsecond=0)
+        if minute_key not in by_minute or punch_state == 0:
+            by_minute[minute_key] = (punch_time, punch_state)
+    deduped = sorted(by_minute.values(), key=lambda x: x[0])
 
+    entry_time = deduped[0][0]
+    exit_time  = deduped[-1][0]
     presence_ms = int((exit_time - entry_time).total_seconds() * 1000)
 
-    # Positional pairs (0+1, 2+3 …) used only to find break gaps — punch_state ignored
+    # Step 2: State-based IN->OUT pairs (same as official HR software)
+    total_work_ms  = 0
     total_break_ms = 0
     total_lunch_ms = 0
-    pairs = []
+    session_start  = None
+    for punch_time, punch_state in deduped:
+        if punch_state == 0 and session_start is None:
+            session_start = punch_time
+        elif punch_state == 1 and session_start is not None:
+            total_work_ms += int((punch_time - session_start).total_seconds() * 1000)
+            session_start = None
 
-    for i in range(0, len(punches) - 1, 2):
-        a_time = punches[i][0]
-        b_time = punches[i + 1][0]
-        seg = int((b_time - a_time).total_seconds() * 1000)
-        if seg > 0:
-            pairs.append((a_time, b_time))
-
-    # Break = gaps between consecutive pairs
-    for i in range(1, len(pairs)):
-        out_t  = pairs[i - 1][1]
-        in_t   = pairs[i][0]
-        gap_ms = int((in_t - out_t).total_seconds() * 1000)
-        if gap_ms <= 0:
-            continue
-        out_mins = out_t.hour * 60 + out_t.minute
-        if LUNCH_START_MIN <= out_mins <= LUNCH_END_MIN:
-            total_lunch_ms += gap_ms
-        else:
-            total_break_ms += gap_ms
-
-    # Actual Work = Presence - Break  →  always ≤ Presence (validation guaranteed)
-    total_work_ms = max(0, presence_ms - total_break_ms - total_lunch_ms)
+    total_break_ms = max(0, presence_ms - total_work_ms)
 
     # Late status
     entry_mins = entry_time.hour * 60 + entry_time.minute
