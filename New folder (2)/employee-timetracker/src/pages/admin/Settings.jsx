@@ -32,7 +32,8 @@ const Input = (props) => (
 
 const SaveBtn = ({ onClick, saved }) => (
   <button onClick={onClick} style={{
-    marginTop: 8, padding: '8px 22px', borderRadius: 8,
+    display: 'block', marginTop: 8, marginLeft: 'auto',
+    padding: '8px 22px', borderRadius: 8,
     background: saved ? '#16a34a' : '#1e293b', color: '#fff',
     border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
     transition: 'background 0.3s'
