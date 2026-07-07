@@ -41,6 +41,9 @@ public class Employee {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column(name = "timesheet_access")
+    private boolean timesheetAccess;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

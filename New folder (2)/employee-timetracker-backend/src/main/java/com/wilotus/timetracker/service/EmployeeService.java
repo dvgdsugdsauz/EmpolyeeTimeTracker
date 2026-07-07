@@ -41,6 +41,7 @@ public class EmployeeService {
                 .dept(dto.getDept())
                 .designation(dto.getDesignation())
                 .avatar(dto.getAvatar())
+                .biometricId(dto.getId())
                 .active(true)
                 .build();
         emp = employeeRepo.save(emp);
@@ -74,6 +75,14 @@ public class EmployeeService {
     }
 
     @Transactional
+    public void setTimesheetAccess(String id, boolean enabled) {
+        Employee emp = employeeRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
+        emp.setTimesheetAccess(enabled);
+        employeeRepo.save(emp);
+    }
+
+    @Transactional
     public void resetPassword(String id, String newPassword) {
         Employee emp = employeeRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
@@ -100,6 +109,7 @@ public class EmployeeService {
         dto.setDesignation(emp.getDesignation());
         dto.setAvatar(emp.getAvatar());
         dto.setActive(emp.isActive());
+        dto.setTimesheetAccess(emp.isTimesheetAccess());
         // password deliberately not returned
         return dto;
     }

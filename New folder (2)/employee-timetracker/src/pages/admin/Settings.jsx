@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { changeMyPassword } from '../../services/api'
+import { changeMyPassword, rebuildData } from '../../services/api'
 
 const USE_API = Boolean(import.meta.env.VITE_API_URL)
 
@@ -91,6 +91,23 @@ export default function Settings({ role = 'admin' }) {
     setTimeout(() => setPwSaved(false), 2000)
   }
 
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState('')
+
+  const handleSync = async () => {
+    setSyncing(true)
+    setSyncMsg('')
+    try {
+      await rebuildData()
+      setSyncMsg('Sync started successfully')
+    } catch (e) {
+      setSyncMsg('Failed: ' + (e.message || 'unknown error'))
+    } finally {
+      setSyncing(false)
+      setTimeout(() => setSyncMsg(''), 4000)
+    }
+  }
+
   const isAdmin = role === 'admin'
 
   return (
@@ -160,6 +177,31 @@ export default function Settings({ role = 'admin' }) {
             </select>
           </Field>
           <SaveBtn onClick={() => save('company')} saved={saved.company} />
+        </SECTION>
+      )}
+
+      {/* Data Sync — admin only */}
+      {isAdmin && (
+        <SECTION title="Data Sync">
+          <Field label="Rebuild attendance data">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button onClick={handleSync} disabled={syncing} style={{
+                padding: '8px 20px', borderRadius: 8, border: 'none',
+                background: syncing ? '#94a3b8' : '#1e293b', color: '#fff',
+                fontSize: 13, fontWeight: 600, cursor: syncing ? 'default' : 'pointer'
+              }}>
+                {syncing ? 'Running...' : 'Run Sync'}
+              </button>
+              {syncMsg && (
+                <span style={{ fontSize: 13, color: syncMsg.startsWith('Failed') ? '#ef4444' : '#16a34a', fontWeight: 500 }}>
+                  {syncMsg}
+                </span>
+              )}
+            </div>
+          </Field>
+          <p style={{ fontSize: 12, color: '#94a3b8', margin: '4px 0 0 236px' }}>
+            Runs device_sync.py on the server — syncs biometric device data and rebuilds attendance records.
+          </p>
         </SECTION>
       )}
 

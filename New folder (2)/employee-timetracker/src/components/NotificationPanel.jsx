@@ -97,7 +97,7 @@ function GenericCard({ n, onDismiss }) {
   )
 }
 
-export default function NotificationPanel({ notifications, onClose, onMarkRead, onApproveOffline }) {
+export default function NotificationPanel({ notifications, onClose, onMarkRead, onApproveOffline, onClearAll }) {
   const unread = notifications.filter(n => !n.read && !n.resolved).length
 
   return (
@@ -115,6 +115,12 @@ export default function NotificationPanel({ notifications, onClose, onMarkRead, 
               <button className="btn-mark-all"
                 onClick={() => notifications.forEach(n => !n.read && onMarkRead(n.id))}>
                 Mark all read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button className="btn-mark-all" style={{ color: '#ef4444', borderColor: '#fecaca', background: '#fff5f5' }}
+                onClick={onClearAll}>
+                Clear all
               </button>
             )}
             <button className="notif-close" onClick={onClose}>

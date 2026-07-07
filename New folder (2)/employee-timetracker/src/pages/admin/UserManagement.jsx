@@ -28,7 +28,7 @@ const DESIGNATIONS = [
 
 const EMPTY_FORM = { id: '', name: '', email: '', username: '', dept: '', designation: '', role: 'employee', password: '' }
 
-const ROLE_COLORS = { employee: '#4f46e5', manager: '#0891b2', admin: '#7c3aed' }
+const ROLE_COLORS = { employee: '#4f46e5', manager: '#0891b2', admin: '#7c3aed', hr: '#059669' }
 
 function RoleBadge({ role }) {
   const color = ROLE_COLORS[role] || '#6b7280'
@@ -140,7 +140,7 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
               onChange={e => setSearch(e.target.value)}
             />
             <div className="filter-tabs">
-              {['ALL', 'employee', 'manager', 'admin'].map(r => (
+              {['ALL', 'employee', 'manager', 'hr', 'admin'].map(r => (
                 <button key={r} className={`filter-tab ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
                   {r === 'ALL' ? 'All' : r.charAt(0).toUpperCase() + r.slice(1)}
                 </button>
@@ -156,7 +156,15 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
         </div>
 
         <div className="table-scroll">
-          <table className="data-table">
+          <table className="data-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+            <colgroup>
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '14%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Employee</th>
@@ -175,7 +183,7 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                       <div className="table-avatar">{u.avatar}</div>
                       <div>
                         <div className="table-emp-name">{u.name}</div>
-                        {u.designation && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 1 }}>{u.designation}</div>}
+                        {u.designation && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.designation}</div>}
                       </div>
                     </div>
                   </td>
@@ -184,9 +192,9 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{u.dept}</div>
                   </td>
                   <td><RoleBadge role={u.role} /></td>
-                  <td className="text-muted">{u.email}</td>
+                  <td className="text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button className="btn-secondary-sm" onClick={() => openEdit(u)} title="Edit User">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -255,6 +263,7 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                   <select value={form.role} onChange={e => setForm({...form, role: e.target.value})}>
                     <option value="employee">Employee</option>
                     <option value="manager">Manager</option>
+                    <option value="hr">HR</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
@@ -314,6 +323,7 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
                   <select value={editForm.role} onChange={e => setEditForm({...editForm, role: e.target.value})}>
                     <option value="employee">Employee</option>
                     <option value="manager">Manager</option>
+                    <option value="hr">HR</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
@@ -345,7 +355,7 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
       {/* Reset Password Modal */}
       {resetUser && (
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setResetUser(null) }}>
-          <div className="modal-box" style={{ maxWidth: 400 }}>
+          <div className="modal-card" style={{ maxWidth: 400 }}>
             <div className="modal-header">
               <h3>Reset Password</h3>
               <button className="modal-close" onClick={() => setResetUser(null)}>×</button>

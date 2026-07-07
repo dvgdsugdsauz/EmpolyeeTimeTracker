@@ -2,6 +2,8 @@ package com.wilotus.timetracker.controller;
 
 import com.wilotus.timetracker.dto.LoginRequest;
 import com.wilotus.timetracker.dto.LoginResponse;
+import com.wilotus.timetracker.entity.Employee;
+import com.wilotus.timetracker.repository.EmployeeRepository;
 import com.wilotus.timetracker.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,17 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final EmployeeRepository employeeRepo;
+
+    /** Returns the server-verified identity of the current token — used by frontend to detect tampering */
+    @GetMapping("/me")
+    public ResponseEntity<LoginResponse> me(Authentication auth) {
+        Employee emp = employeeRepo.findByUsernameOrEmail(auth.getName(), auth.getName()).orElseThrow();
+        return ResponseEntity.ok(new LoginResponse(
+                null, emp.getId(), emp.getName(), emp.getEmail(),
+                emp.getRole(), emp.getDept(), emp.getDesignation(), emp.getAvatar(),
+                emp.isTimesheetAccess()));
+    }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req) {

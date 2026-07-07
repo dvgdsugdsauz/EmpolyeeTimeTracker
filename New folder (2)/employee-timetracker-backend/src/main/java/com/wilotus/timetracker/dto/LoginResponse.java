@@ -12,5 +12,7 @@ public class LoginResponse {
     private String email;
     private String role;
     private String dept;
+    private String designation;
     private String avatar;
+    private boolean timesheetAccess;
 }

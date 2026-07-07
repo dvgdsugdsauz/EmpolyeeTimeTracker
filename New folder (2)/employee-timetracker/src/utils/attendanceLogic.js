@@ -13,6 +13,15 @@ export function getLateLabel(lateStatus) {
   return { label: 'On Time', color: '#16a34a', bg: '#dcfce7' }
 }
 
+// Work-hours based day status — auto calculation
+// >= 8h 20m (30,000,000 ms) → Full Day
+// <  8h 20m                 → Short (default)
+export function workStatus(workMs) {
+  if (!workMs || workMs <= 0) return null
+  if (workMs >= 30000000) return { label: 'Full Day', color: '#059669', bg: '#ecfdf5' }
+  return                         { label: 'Short',    color: '#e11d48', bg: '#fff1f2' }
+}
+
 export function isInLunchWindow(isoString) {
   const t = new Date(isoString)
   const mins = t.getHours() * 60 + t.getMinutes()
@@ -40,14 +49,19 @@ export function getLiveWorkTotal(att, now) {
 export function getLiveOutsideTotal(att, now) {
   if ((att.status === 'BREAK' || att.status === 'LUNCH' || att.status === 'MISS_PUNCH') && att.lastPunchOut) {
     const elapsed = now - new Date(att.lastPunchOut).getTime()
-    if (att.status === 'LUNCH') return { break: att.breakTotal, lunch: att.lunchTotal + elapsed }
-    return { break: att.breakTotal + elapsed, lunch: att.lunchTotal }
+    return { break: att.breakTotal + att.lunchTotal + elapsed, lunch: 0 }
   }
-  return { break: att.breakTotal, lunch: att.lunchTotal }
+  return { break: att.breakTotal + att.lunchTotal, lunch: 0 }
 }
 
+const WORK_TARGET_MS = (8 * 3600 + 30 * 60) * 1000  // 8h 30m
+
 export function getPendingMs(att, now) {
-  const REQUIRED = (9 * 3600 + 30 * 60) * 1000   // 9h 30m
   const worked = getLiveWorkTotal(att, now)
-  return Math.max(0, REQUIRED - worked)
+  return Math.max(0, WORK_TARGET_MS - worked)
+}
+
+export function getOvertimeMs(att, now) {
+  const worked = getLiveWorkTotal(att, now)
+  return Math.max(0, worked - WORK_TARGET_MS)
 }

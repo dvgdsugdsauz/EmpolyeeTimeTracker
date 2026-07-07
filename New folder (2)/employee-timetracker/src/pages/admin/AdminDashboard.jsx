@@ -116,8 +116,8 @@ export default function AdminDashboard({ users, attendance, onNavigate, devices 
     setRebuilding(true)
     setRebuildMsg(null)
     try {
-      const res = await api.rebuildData()
-      setRebuildMsg({ ok: true, text: `Done — ${res.historical} · ${res.live}` })
+      await api.rebuildData()
+      setRebuildMsg({ ok: true, text: 'Sync started — device data pull running on server' })
     } catch (e) {
       setRebuildMsg({ ok: false, text: e.message })
     } finally {
@@ -125,19 +125,23 @@ export default function AdminDashboard({ users, attendance, onNavigate, devices 
     }
   }
 
-  const employees = useMemo(() => users.filter(u => u.role === 'employee'), [users])
+  const employees = useMemo(() => users, [users])
   const attMap    = useMemo(() => Object.fromEntries(attendance.map(a => [a.employeeId, a])), [attendance])
 
-  const counts = useMemo(() => ({
-    total:      employees.length,
-    working:    attendance.filter(a => a.status === 'WORKING').length,
-    outside:    attendance.filter(a => ['BREAK','LUNCH'].includes(a.status)).length,
-    miss:       attendance.filter(a => a.status === 'MISS_PUNCH').length,
-    notArrived: attendance.filter(a => a.status === 'NOT_ARRIVED').length,
-    offline:    attendance.filter(a => a.status === 'OFFLINE').length,
-  }), [employees, attendance])
+  const counts = useMemo(() => {
+    const empIds = new Set(employees.map(e => e.id))
+    const empAtt = attendance.filter(a => empIds.has(a.employeeId))
+    return {
+      total:      employees.length,
+      working:    empAtt.filter(a => a.status === 'WORKING').length,
+      outside:    empAtt.filter(a => ['BREAK','LUNCH'].includes(a.status)).length,
+      miss:       empAtt.filter(a => a.status === 'MISS_PUNCH').length,
+      notArrived: empAtt.filter(a => a.status === 'NOT_ARRIVED').length,
+      offline:    empAtt.filter(a => a.status === 'OFFLINE').length,
+    }
+  }, [employees, attendance])
 
-  const presentPct = Math.round(((counts.total - counts.notArrived) / counts.total) * 100)
+  const presentPct = counts.total > 0 ? Math.round(((counts.working + counts.outside) / counts.total) * 100) : 0
 
   const STAT_CARDS = [
     { label: 'Total Employees', value: counts.total,      color: '#4f46e5' },
@@ -249,18 +253,18 @@ export default function AdminDashboard({ users, attendance, onNavigate, devices 
             <div key={dev.id} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '12px 16px', borderRadius: 10,
-              background: dev.status === 'ONLINE' ? '#f0fdf4' : '#f9fafb',
-              border: `1.5px solid ${dev.status === 'ONLINE' ? '#bbf7d0' : '#e5e7eb'}`,
+              background: dev.connected ? '#f0fdf4' : '#f9fafb',
+              border: `1.5px solid ${dev.connected ? '#bbf7d0' : '#e5e7eb'}`,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{
                   width: 10, height: 10, borderRadius: '50%',
-                  background: dev.status === 'ONLINE' ? '#22c55e' : '#9ca3af',
-                  boxShadow: dev.status === 'ONLINE' ? '0 0 0 3px rgba(34,197,94,0.2)' : 'none',
+                  background: dev.connected ? '#22c55e' : '#9ca3af',
+                  boxShadow: dev.connected ? '0 0 0 3px rgba(34,197,94,0.2)' : 'none',
                 }} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{dev.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dev.location} &nbsp;·&nbsp; {dev.ip}:{dev.port}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dev.location} &nbsp;·&nbsp; {dev.ipAddress}:{dev.port}</div>
                 </div>
               </div>
               <button
@@ -268,12 +272,12 @@ export default function AdminDashboard({ users, attendance, onNavigate, devices 
                 style={{
                   padding: '6px 18px', borderRadius: 7, fontSize: 12, fontWeight: 600,
                   cursor: 'pointer', border: 'none',
-                  background: dev.status === 'ONLINE' ? '#fee2e2' : '#1e293b',
-                  color: dev.status === 'ONLINE' ? '#dc2626' : '#fff',
+                  background: dev.connected ? '#fee2e2' : '#1e293b',
+                  color: dev.connected ? '#dc2626' : '#fff',
                   transition: 'background 0.2s',
                 }}
               >
-                {dev.status === 'ONLINE' ? 'Disconnect' : 'Connect'}
+                {dev.connected ? 'Disconnect' : 'Connect'}
               </button>
             </div>
           ))}

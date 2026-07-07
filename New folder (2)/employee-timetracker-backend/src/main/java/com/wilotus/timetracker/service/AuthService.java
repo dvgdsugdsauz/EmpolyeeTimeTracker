@@ -49,7 +49,9 @@ public class AuthService {
                 employee.getEmail(),
                 employee.getRole(),
                 employee.getDept(),
-                employee.getAvatar()
+                employee.getDesignation(),
+                employee.getAvatar(),
+                employee.isTimesheetAccess()
         );
     }
 }

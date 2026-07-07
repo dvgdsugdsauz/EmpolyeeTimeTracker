@@ -1,13 +1,22 @@
 const NAV_EMPLOYEE = [
   { id: 'dashboard',    label: 'Dashboard',     icon: 'grid' },
-  { id: 'attendance',   label: 'My Attendance',  icon: 'calendar' },
+  { id: 'attendance',   label: 'Attendance',    icon: 'calendar' },
+  { id: 'timesheet',   label: 'Timesheet',      icon: 'file-text' },
 ]
 
 const NAV_MANAGER = [
   { id: 'live',         label: 'Live Data',      icon: 'monitor' },
   { id: 'reports',      label: 'Reports',        icon: 'bar-chart' },
-  { id: 'attendance',   label: 'My Attendance',  icon: 'calendar' },
-  { id: 'notifications',label: 'Approvals',       icon: 'bell' },
+  { id: 'attendance',   label: 'Attendance',      icon: 'calendar' },
+  { id: 'timesheet',   label: 'Timesheets',      icon: 'file-text' },
+]
+
+const NAV_HR = [
+  { id: 'live',         label: 'Live Monitor',   icon: 'monitor' },
+  { id: 'employees',    label: 'Employees',      icon: 'users' },
+  { id: 'reports',      label: 'Reports',        icon: 'bar-chart' },
+  { id: 'attendance',   label: 'Attendance',     icon: 'calendar' },
+  { id: 'settings',     label: 'Settings',       icon: 'settings' },
 ]
 
 const NAV_ADMIN = [
@@ -16,7 +25,10 @@ const NAV_ADMIN = [
   { id: 'employees',    label: 'Employees',      icon: 'users' },
   { id: 'devices',      label: 'Devices',        icon: 'cpu' },
   { id: 'reports',      label: 'Reports',        icon: 'bar-chart' },
-  { id: 'settings',     label: 'Settings',       icon: 'settings' },
+  { id: 'attendance',   label: 'Attendance',      icon: 'calendar' },
+  { id: 'timesheet',   label: 'Timesheets',      icon: 'file-text' },
+  { id: 'notifications',label: 'Approvals',      icon: 'bell' },
+  { id: 'settings',    label: 'Settings',        icon: 'settings' },
 ]
 
 function Icon({ name }) {
@@ -30,6 +42,8 @@ function Icon({ name }) {
     users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
     cpu: <><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></>,
     settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
+    'file-text': <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>,
+    upload: <><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></>,
   }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -39,17 +53,19 @@ function Icon({ name }) {
 }
 
 export default function Sidebar({ role, currentPage, onNavigate, unreadCount, collapsed, onToggle }) {
-  const navItems = role === 'admin' ? NAV_ADMIN : role === 'manager' ? NAV_MANAGER : NAV_EMPLOYEE
+  const navItems = role === 'admin' ? NAV_ADMIN
+    : role === 'hr' ? NAV_HR
+    : role === 'manager' ? [...NAV_MANAGER, { id: 'my-timesheet', label: 'My Timesheet', icon: 'file-text' }]
+    : NAV_EMPLOYEE
 
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <div className="sidebar-header">
-        <div className="sidebar-logo">
-          <svg viewBox="0 0 32 32" fill="none">
-            <circle cx="16" cy="16" r="14" stroke="white" strokeWidth="2"/>
-            <polyline points="16,8 16,16 21,20" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          {!collapsed && <span>My Desklog</span>}
+        <div className="sidebar-logo" onClick={collapsed ? onToggle : undefined} style={{ cursor: collapsed ? 'pointer' : 'default' }}>
+          {collapsed
+            ? <img src="/wilotus-icon.svg" alt="Wilotus" style={{ height: 28, width: 'auto', display: 'block' }} />
+            : <img src="/wilotus-logo-white.svg" alt="Wilotus" style={{ height: 52, width: 'auto', display: 'block', maxWidth: 180 }} />
+          }
         </div>
         <button className="sidebar-collapse-btn" onClick={onToggle} title={collapsed ? 'Expand' : 'Collapse'}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -61,11 +77,6 @@ export default function Sidebar({ role, currentPage, onNavigate, unreadCount, co
         </button>
       </div>
 
-      {!collapsed && (
-        <div className="sidebar-role-badge">
-          <span>{role.charAt(0).toUpperCase() + role.slice(1)} Portal</span>
-        </div>
-      )}
 
       <nav className="sidebar-nav">
         {navItems.map(item => (
@@ -87,7 +98,7 @@ export default function Sidebar({ role, currentPage, onNavigate, unreadCount, co
       </nav>
 
       <div className="sidebar-footer">
-        {!collapsed && <p className="sidebar-footer-text">v1.0.0 — LAN Mode</p>}
+        {!collapsed && <p className="sidebar-footer-text">Wilotus TimeTracker</p>}
       </div>
     </aside>
   )

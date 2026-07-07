@@ -16,4 +16,16 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     void markAllRead();
 
     boolean existsByEmployeeIdAndTypeAndReadFalse(String employeeId, String type);
+
+    @Modifying
+    @Query("UPDATE Notification n SET n.read = true WHERE n.employeeId = :employeeId AND n.read = false")
+    void markAllReadForEmployee(String employeeId);
+
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.read = true")
+    void deleteAllResolved();
+
+    @Modifying
+    @Query("DELETE FROM Notification n")
+    void deleteAllNotifications();
 }

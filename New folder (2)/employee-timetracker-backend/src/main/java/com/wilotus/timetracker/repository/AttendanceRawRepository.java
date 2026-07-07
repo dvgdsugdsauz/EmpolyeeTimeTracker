@@ -17,6 +17,9 @@ public interface AttendanceRawRepository extends JpaRepository<AttendanceRaw, Lo
 
     Optional<AttendanceRaw> findTopByOrderByPunchTimeDesc();
 
+    // Same but ignores future-date records (guards against corrupted device timestamps)
+    Optional<AttendanceRaw> findTopByPunchTimeLessThanOrderByPunchTimeDesc(LocalDateTime ceiling);
+
     boolean existsByEmployeeIdAndPunchTimeAndPunchState(
             String employeeId, LocalDateTime punchTime, int punchState);
 

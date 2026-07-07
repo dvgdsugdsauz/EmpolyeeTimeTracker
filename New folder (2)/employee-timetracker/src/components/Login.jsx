@@ -7,16 +7,15 @@ export default function Login({ onLogin }) {
   const [showPass, setShowPass]     = useState(false)
   const [error, setError]           = useState('')
   const [loading, setLoading]       = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-    setTimeout(() => {
-      const ok = onLogin(identifier.trim(), password)
-      if (!ok) setError('Invalid username or password. Please try again.')
-      setLoading(false)
-    }, 500)
+    const ok = await onLogin(identifier.trim(), password)
+    if (!ok) setError('Invalid username or password. Please try again.')
+    setLoading(false)
   }
 
   return (
@@ -108,7 +107,16 @@ export default function Login({ onLogin }) {
             </button>
 
             <div className="lf-forgot">
-              <a href="#">Forgot Password?</a>
+              <a href="#" onClick={e => { e.preventDefault(); setShowForgot(s => !s) }}>Forgot Password?</a>
+              {showForgot && (
+                <div style={{
+                  marginTop: 8, padding: '10px 14px', background: '#f0f9ff',
+                  border: '1px solid #bae6fd', borderRadius: 8,
+                  fontSize: 12, color: '#0369a1', lineHeight: 1.5,
+                }}>
+                  Contact your system administrator to reset your password.
+                </div>
+              )}
             </div>
           </form>
 

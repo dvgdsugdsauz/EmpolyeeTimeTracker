@@ -118,10 +118,12 @@ public class ZktecoTcpService {
             List<byte[]> records = fetchAttendanceLogs(out, in, sessionId, ++replyId);
             log.info("TCP pull — {} — {} raw records from device", device.getName(), records.size());
 
-            // Use last punch time from DB so restart doesn't re-import old records
+            // Use last punch time from DB so restart doesn't re-import old records.
+            // Cap at today+1 so corrupted future-date records (e.g. 2035) never block imports.
             LocalDateTime since = lastSync.getOrDefault(device.getId(), null);
             if (since == null) {
-                since = rawRepo.findTopByOrderByPunchTimeDesc()
+                LocalDateTime ceiling = LocalDate.now().plusDays(1).atStartOfDay();
+                since = rawRepo.findTopByPunchTimeLessThanOrderByPunchTimeDesc(ceiling)
                         .map(r -> r.getPunchTime().minusMinutes(5))
                         .orElse(LocalDateTime.now().minusDays(1));
             }

@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -38,21 +38,19 @@ public class NotificationService {
         notificationRepo.save(n);
     }
 
-    @Transactional
-    public void createLateNotification(String employeeId, String lateStatus, LocalDateTime entryTime) {
-        if (notificationRepo.existsByEmployeeIdAndTypeAndReadFalse(employeeId, "LATE_ENTRY")) return;
+@Transactional
+    public void createEarlyLogoffNotification(String employeeId, long workMs) {
+        if (notificationRepo.existsByEmployeeIdAndTypeAndReadFalse(employeeId, "EARLY_LOGOFF")) return;
 
-        String name = employeeRepo.findById(employeeId)
-                .map(e -> e.getName()).orElse(employeeId);
-        String label = "VERY_LATE".equals(lateStatus) ? "Very Late" : "Late";
-        String type  = "VERY_LATE".equals(lateStatus) ? "VERY_LATE" : "LATE_ENTRY";
+        String name  = employeeRepo.findById(employeeId).map(e -> e.getName()).orElse(employeeId);
+        long hours   = workMs / 3_600_000;
+        long minutes = (workMs % 3_600_000) / 60_000;
 
         Notification n = Notification.builder()
-                .type(type)
+                .type("EARLY_LOGOFF")
                 .employeeId(employeeId)
                 .employeeName(name)
-                .message(String.format("%s arrived %s at %s",
-                        name, label, entryTime.toLocalTime().toString()))
+                .message(String.format("%s left early — %dh %dm worked (target: 9h 30m)", name, hours, minutes))
                 .read(false)
                 .build();
         notificationRepo.save(n);
@@ -77,5 +75,34 @@ public class NotificationService {
             n.setRead(true);
             notificationRepo.save(n);
         });
+    }
+
+    @Transactional
+    public void markAllReadForEmployee(String employeeId) {
+        notificationRepo.markAllReadForEmployee(employeeId);
+    }
+
+    @Transactional
+    public void deleteAllResolved() {
+        notificationRepo.deleteAllResolved();
+    }
+
+    @Transactional
+    public void deleteAll() {
+        notificationRepo.deleteAllNotifications();
+    }
+
+    @Transactional
+    public void createTimesheetNotification(String employeeId, LocalDate workingDate) {
+        String name = employeeRepo.findById(employeeId)
+                .map(e -> e.getName()).orElse(employeeId);
+        Notification n = Notification.builder()
+                .type("TIMESHEET_SUBMITTED")
+                .employeeId(employeeId)
+                .employeeName(name)
+                .message(String.format("%s submitted a timesheet for %s", name, workingDate))
+                .read(false)
+                .build();
+        notificationRepo.save(n);
     }
 }

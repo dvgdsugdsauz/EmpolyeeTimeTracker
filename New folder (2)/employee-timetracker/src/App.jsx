@@ -4,6 +4,7 @@ import { checkMissPunch } from './utils/attendanceLogic'
 import * as api from './services/api'
 import { requestNotificationPermission, triggerAlertsForNew } from './utils/notificationAlerts'
 import Login from './components/Login'
+import Loader from './components/Loader'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
 import NotificationPanel from './components/NotificationPanel'
@@ -16,23 +17,40 @@ import DeviceManagement from './pages/admin/DeviceManagement'
 import Reports from './pages/admin/Reports'
 import ApprovalsPage from './pages/manager/ApprovalsPage'
 import Settings from './pages/admin/Settings'
+import TimesheetPage from './pages/employee/TimesheetPage'
+import ManagerTimesheetPage from './pages/manager/ManagerTimesheetPage'
+import TimesheetImport from './pages/admin/TimesheetImport'
 
 // Set VITE_API_URL in .env.local to enable real backend
 const USE_API = Boolean(import.meta.env.VITE_API_URL)
 
 function getSession() {
-  try { return JSON.parse(localStorage.getItem('wilotus_session')) } catch { return null }
+  try { return JSON.parse(sessionStorage.getItem('wilotus_session')) } catch { return null }
 }
 
 const PAGE_TITLES = {
   dashboard:     'Dashboard',
   live:          'Live Monitor',
   reports:       'Reports & Export',
-  attendance:    'My Attendance',
+  attendance:    'Attendance',
   notifications: 'Approvals',
+  timesheet:     'Timesheet',
+  'my-timesheet': 'My Timesheet',
+  import:        'Import Data',
   employees:     'Employee Management',
   devices:       'Biometric Devices',
   settings:      'Settings',
+}
+
+// Normalize Java array times → ISO string (Jackson serializes LocalDateTime as [y,m,d,h,m,s])
+function toIso(t) {
+  if (!t) return null
+  if (Array.isArray(t)) {
+    if (t.length >= 6)
+      return `${t[0]}-${String(t[1]).padStart(2,'0')}-${String(t[2]).padStart(2,'0')}T${String(t[3]).padStart(2,'0')}:${String(t[4]).padStart(2,'0')}:${String(t[5]).padStart(2,'0')}`
+    return `1970-01-01T${String(t[0]).padStart(2,'0')}:${String(t[1]).padStart(2,'0')}:${String(t[2]||0).padStart(2,'0')}`
+  }
+  return t
 }
 
 // Transform API LiveStatusDto array into { users, attendance } matching UI format
@@ -46,9 +64,9 @@ function transformApiData(liveList) {
   const attendance = liveList.map(d => ({
     employeeId: d.id,
     status: d.status,
-    entryTime: d.entryTime,
-    lastPunchIn: d.lastPunchIn,
-    lastPunchOut: d.lastPunchOut,
+    entryTime:    toIso(d.entryTime),
+    lastPunchIn:  toIso(d.lastPunchIn),
+    lastPunchOut: toIso(d.lastPunchOut),
     workTotal:  d.totalWorkMs  || 0,
     breakTotal: d.totalBreakMs || 0,
     lunchTotal: d.totalLunchMs || 0,
@@ -64,7 +82,7 @@ export default function App() {
     const s = getSession()
     if (!s) return null
     if (USE_API && !s.fromApi) {
-      localStorage.removeItem('wilotus_session')
+      sessionStorage.removeItem('wilotus_session')
       return null
     }
     return s
@@ -77,11 +95,13 @@ export default function App() {
   const [devices, setDevices]               = useState(DEVICES_INIT)
   const [currentPage, setCurrentPage]       = useState(() => {
     const session = initialUser
-    return session?.role === 'manager' ? 'live' : 'dashboard'
+    return (session?.role === 'manager' || session?.role === 'hr') ? 'live' : 'dashboard'
   })
   const [chartData, setChartData]           = useState([])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showNotifPanel, setShowNotifPanel] = useState(false)
+  const [appLoading, setAppLoading]         = useState(false)
+  const loadingTimer = useRef(null)
   const apiMode = useRef(USE_API && !!initialUser)
 
   // ── API mode: admin/manager — real-time SSE with polling fallback ────────
@@ -98,6 +118,11 @@ export default function App() {
     api.fetchDevices().then(list => setDevices(list)).catch(() => {})
     api.fetchMetrics().then(m => { if (m?.chartData) setChartData(m.chartData) }).catch(() => {})
 
+    // Safety poll every 15s — catches missed SSE events and initial load gaps
+    const safetyTimer = setInterval(() => {
+      api.fetchLiveAttendance().then(applyLive).catch(() => {})
+    }, 15000)
+
     let fallbackTimer = null
     const source = api.subscribeToLiveAttendance(applyLive, () => {
       // SSE failed — fall back to 5s polling
@@ -109,6 +134,7 @@ export default function App() {
     return () => {
       if (source) source.close()
       if (fallbackTimer) clearInterval(fallbackTimer)
+      clearInterval(safetyTimer)
     }
   }, [apiMode.current, user?.role])
 
@@ -122,10 +148,10 @@ export default function App() {
         const rest = prev.filter(a => a.employeeId !== dto.id)
         return [...rest, {
           employeeId:   dto.id,
-          status:       dto.status       || 'NOT_ARRIVED',
-          entryTime:    dto.entryTime    || null,
-          lastPunchIn:  dto.lastPunchIn  || null,
-          lastPunchOut: dto.lastPunchOut || null,
+          status:       dto.status            || 'NOT_ARRIVED',
+          entryTime:    toIso(dto.entryTime)    || null,
+          lastPunchIn:  toIso(dto.lastPunchIn)  || null,
+          lastPunchOut: toIso(dto.lastPunchOut) || null,
           workTotal:    dto.totalWorkMs  || 0,
           breakTotal:   dto.totalBreakMs || 0,
           lunchTotal:   dto.totalLunchMs || 0,
@@ -136,6 +162,14 @@ export default function App() {
 
     // Initial load from dedicated my-endpoint
     api.fetchMyAttendance().then(applyMyRecord).catch(() => {})
+
+    // Re-fetch when tab comes back from background (recovers stale state)
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') {
+        api.fetchMyAttendance().then(applyMyRecord).catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisible)
 
     // SSE: receive full live list, filter for own record → near-instant updates
     let fallbackTimer = null
@@ -152,6 +186,7 @@ export default function App() {
     return () => {
       if (source) source.close()
       if (fallbackTimer) clearInterval(fallbackTimer)
+      document.removeEventListener('visibilitychange', handleVisible)
     }
   }, [apiMode.current, user?.id])
 
@@ -218,16 +253,25 @@ export default function App() {
     return () => clearInterval(poll)
   }, [users, notifications, apiMode.current])
 
+  function navigateTo(page) {
+    if (loadingTimer.current) clearTimeout(loadingTimer.current)
+    setAppLoading(true)
+    setCurrentPage(page)
+    loadingTimer.current = setTimeout(() => setAppLoading(false), 400)
+  }
+
   // ── Login ──────────────────────────────────────────────────────────────
   const handleLogin = async (identifier, password) => {
     if (USE_API) {
       try {
         const data = await api.login(identifier, password)
         const sessionUser = { ...data, fromApi: true }
-        localStorage.setItem('wilotus_session', JSON.stringify(sessionUser))
+        sessionStorage.setItem('wilotus_session', JSON.stringify(sessionUser))
         apiMode.current = true
+        setAppLoading(true)
         setUser(sessionUser)
-        setCurrentPage(data.role === 'manager' ? 'live' : 'dashboard')
+        setCurrentPage((data.role === 'manager' || data.role === 'hr') ? 'live' : 'dashboard')
+        setTimeout(() => setAppLoading(false), 800)
         return true
       } catch {
         // fall through to mock login
@@ -242,10 +286,12 @@ export default function App() {
     )
     if (found) {
       const sessionUser = { ...found, fromApi: false }
-      localStorage.setItem('wilotus_session', JSON.stringify(sessionUser))
+      sessionStorage.setItem('wilotus_session', JSON.stringify(sessionUser))
       apiMode.current = false
+      setAppLoading(true)
       setUser(sessionUser)
-      setCurrentPage(found.role === 'manager' ? 'live' : 'dashboard')
+      setCurrentPage((found.role === 'manager' || found.role === 'hr') ? 'live' : 'dashboard')
+      setTimeout(() => setAppLoading(false), 600)
       return true
     }
     return false
@@ -253,7 +299,7 @@ export default function App() {
 
   const handleLogout = () => {
     api.logout()
-    localStorage.removeItem('wilotus_session')
+    sessionStorage.removeItem('wilotus_session')
     setUser(null)
     apiMode.current = false
   }
@@ -266,7 +312,7 @@ export default function App() {
     setAttendance(prev => prev.map(a =>
       a.employeeId === employeeId ? { ...a, status: 'OFFLINE' } : a))
     setNotifications(prev => prev.map(n =>
-      n.employeeId === employeeId && n.type === 'MISS_PUNCH'
+      n.employeeId === employeeId && !n.resolved
         ? { ...n, resolved: true, read: true } : n))
   }, [])
 
@@ -275,7 +321,23 @@ export default function App() {
     if (apiMode.current) {
       try { await api.markOneRead(id) } catch {/* ok */}
     }
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true, resolved: true } : n))
+  }, [])
+
+  // ── Clear All Resolved Notifications ───────────────────────────────────
+  const handleClearResolved = useCallback(async () => {
+    if (apiMode.current) {
+      try { await api.clearResolvedNotifications() } catch {/* ok */}
+    }
+    setNotifications(prev => prev.filter(n => !n.resolved))
+  }, [])
+
+  // ── Clear All Notifications ────────────────────────────────────────────
+  const handleClearAll = useCallback(async () => {
+    if (apiMode.current) {
+      try { await api.clearAllNotifications() } catch {/* ok */}
+    }
+    setNotifications([])
   }, [])
 
   // ── Employee CRUD ──────────────────────────────────────────────────────
@@ -304,6 +366,13 @@ export default function App() {
       try { await api.deleteEmployee(id) } catch {/* ok */}
     }
     setUsers(prev => prev.filter(u => u.id !== id))
+  }
+
+  const handleToggleTimesheetAccess = async (id, enabled) => {
+    if (apiMode.current) {
+      try { await api.setTimesheetAccess(id, enabled) } catch {/* ok */}
+    }
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, timesheetAccess: enabled } : u))
   }
 
   // ── Device CRUD ────────────────────────────────────────────────────────
@@ -343,7 +412,7 @@ export default function App() {
     }
     setDevices(prev => prev.map(d =>
       d.id === id || String(d.id) === String(id)
-        ? { ...d, connected: true, active: true, status: 'ONLINE' } : d))
+        ? { ...d, connected: true, active: true } : d))
   }
 
   const handleDisconnectDevice = async (id) => {
@@ -352,12 +421,12 @@ export default function App() {
     }
     setDevices(prev => prev.map(d =>
       d.id === id || String(d.id) === String(id)
-        ? { ...d, connected: false, active: false, status: 'OFFLINE' } : d))
+        ? { ...d, connected: false, active: false } : d))
   }
 
   const handleToggleDevice = async (id) => {
     const dev = devices.find(d => d.id === id || String(d.id) === String(id))
-    if (dev?.connected || dev?.status === 'ONLINE') {
+    if (dev?.connected) {
       await handleDisconnectDevice(id)
     } else {
       await handleConnectDevice(id)
@@ -387,14 +456,32 @@ export default function App() {
   const renderPage = () => {
     if (user.role === 'employee') {
       if (currentPage === 'attendance') return <MyAttendance user={user} />
+      if (currentPage === 'timesheet') return <TimesheetPage user={user} />
       return <EmployeeDashboard user={user} attendance={myAttendance} />
+    }
+
+    if (user.role === 'hr') {
+      switch (currentPage) {
+        case 'live':
+          return <ManagerDashboard users={users} attendance={attendance} myAttendance={myAttendance} currentUser={user} onApproveOffline={handleApproveOffline} />
+        case 'employees':
+          return <UserManagement users={users} onAddUser={handleAddUser} onEditUser={handleEditUser} onDeleteUser={handleDeleteUser} />
+        case 'reports':
+          return <Reports users={users} attendance={attendance} />
+        case 'attendance':
+          return <MyAttendance user={user} />
+        case 'settings':
+          return <Settings role={user.role} />
+        default:
+          return <ManagerDashboard users={users} attendance={attendance} myAttendance={myAttendance} currentUser={user} onApproveOffline={handleApproveOffline} />
+      }
     }
 
     if (user.role === 'manager' || user.role === 'admin') {
       switch (currentPage) {
         case 'dashboard':
           return user.role === 'admin'
-            ? <AdminDashboard users={users} attendance={attendance} onNavigate={setCurrentPage} devices={devices} onToggleDevice={handleToggleDevice} chartData={chartData} />
+            ? <AdminDashboard users={users} attendance={attendance} onNavigate={navigateTo} devices={devices} onToggleDevice={handleToggleDevice} chartData={chartData} />
             : <ManagerDashboard users={users} attendance={attendance} myAttendance={myAttendance} currentUser={user} onApproveOffline={handleApproveOffline} />
         case 'live':
           return <ManagerDashboard users={users} attendance={attendance} myAttendance={myAttendance} currentUser={user} onApproveOffline={handleApproveOffline} />
@@ -415,12 +502,18 @@ export default function App() {
         case 'attendance':
           return <MyAttendance user={user} />
         case 'notifications':
-          return <ApprovalsPage notifications={notifications} onApproveOffline={handleApproveOffline} onMarkRead={handleMarkRead} />
+          return <ApprovalsPage notifications={notifications} onApproveOffline={handleApproveOffline} onMarkRead={handleMarkRead} onClearResolved={handleClearResolved} />
+        case 'timesheet':
+          return <ManagerTimesheetPage user={user} />
+        case 'my-timesheet':
+          return <TimesheetPage user={user} />
+        case 'import':
+          return <TimesheetImport />
         case 'settings':
           return <Settings role={user.role} />
         default:
           return user.role === 'admin'
-            ? <AdminDashboard users={users} attendance={attendance} onNavigate={setCurrentPage} />
+            ? <AdminDashboard users={users} attendance={attendance} onNavigate={navigateTo} />
             : <ManagerDashboard users={users} attendance={attendance} onApproveOffline={handleApproveOffline} />
       }
     }
@@ -428,10 +521,11 @@ export default function App() {
 
   return (
     <div className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
+      {appLoading && <Loader />}
       <Sidebar
         role={user.role}
         currentPage={currentPage}
-        onNavigate={setCurrentPage}
+        onNavigate={navigateTo}
         unreadCount={unreadCount}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(c => !c)}
@@ -455,6 +549,7 @@ export default function App() {
           onClose={() => setShowNotifPanel(false)}
           onMarkRead={handleMarkRead}
           onApproveOffline={(n) => { handleApproveOffline(n.employeeId); setShowNotifPanel(false) }}
+          onClearAll={handleClearAll}
         />
       )}
     </div>

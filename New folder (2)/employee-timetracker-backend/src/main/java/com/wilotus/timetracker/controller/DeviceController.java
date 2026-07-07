@@ -15,7 +15,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/devices")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','HR')")
 public class DeviceController {
 
     private final DeviceRepository deviceRepo;
@@ -85,9 +85,8 @@ public class DeviceController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    // Called by Java middleware to update device heartbeat
+    // Called by Java middleware to update device heartbeat — allowed in SecurityConfig without JWT
     @PostMapping("/{id}/heartbeat")
-    @PreAuthorize("permitAll()")
     public ResponseEntity<?> heartbeat(@PathVariable Long id) {
         deviceRepo.findById(id).ifPresent(d -> {
             d.setConnected(true);

@@ -33,8 +33,12 @@ public class SecurityConfig {
                         .requestMatchers("/iclock/**").permitAll()
                         // Punch endpoint called by biometric middleware
                         .requestMatchers("/api/attendance/punch").permitAll()
+                        // Rebuild live status called by device_sync.py after bulk sync
+                        .requestMatchers("/api/attendance/rebuild-live-today").permitAll()
                         // SSE stream — token validated manually inside controller
                         .requestMatchers("/api/attendance/stream").permitAll()
+                        // Device heartbeat called by biometric middleware without user JWT
+                        .requestMatchers("/api/devices/*/heartbeat").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

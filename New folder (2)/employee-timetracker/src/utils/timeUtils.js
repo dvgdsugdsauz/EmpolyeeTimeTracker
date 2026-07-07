@@ -15,7 +15,11 @@ export function formatDurationHHMMSS(ms) {
 
 export function formatTime12(iso) {
   if (!iso) return '--'
-  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+  // Handle "HH:MM" or "HH:MM:SS" time-only strings (no date part)
+  const src = (typeof iso === 'string' && /^\d{2}:\d{2}/.test(iso))
+    ? `1970-01-01T${iso.length === 5 ? iso + ':00' : iso}`
+    : iso
+  return new Date(src).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
 export function formatDateLabel(isoDate) {

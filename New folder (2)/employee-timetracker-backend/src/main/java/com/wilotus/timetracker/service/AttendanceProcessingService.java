@@ -25,6 +25,7 @@ public class AttendanceProcessingService {
     private final EmployeeLiveStatusRepository liveRepo;
     private final AttendanceDailySummaryRepository summaryRepo;
     private final EmployeeRepository employeeRepo;
+    private final TimesheetRepository timesheetRepo;
     private final NotificationService notificationService;
     private final SseService sseService;
     private final DashboardService dashboardService;
@@ -113,11 +114,6 @@ public class AttendanceProcessingService {
         if (live.getEntryTime() == null) {
             live.setEntryTime(punchTime);
             live.setLateStatus(calculateLateStatus(punchTime.toLocalTime()));
-
-            if (!"NORMAL".equals(live.getLateStatus())) {
-                notificationService.createLateNotification(
-                        live.getEmployeeId(), live.getLateStatus(), punchTime);
-            }
         }
 
         live.setLastPunchIn(punchTime);
@@ -139,6 +135,14 @@ public class AttendanceProcessingService {
             live.setStatus("LUNCH");
         } else {
             live.setStatus("BREAK");
+
+            // Early logoff notification: after 3 PM, work is 7h–8h19m (less than full day 8h20m)
+            long worked = live.getTotalWorkMs();
+            if (punchTime.toLocalTime().isAfter(LocalTime.of(15, 0))
+                    && worked >= 25_200_000L   // >= 7h
+                    && worked <  34_200_000L) { // <  9h30m (full day threshold)
+                notificationService.createEarlyLogoffNotification(live.getEmployeeId(), worked);
+            }
         }
     }
 
@@ -147,6 +151,9 @@ public class AttendanceProcessingService {
     @Scheduled(fixedDelay = 300_000)
     @Transactional
     public void checkMissPunches() {
+        // After 7:30 PM IST (= 14:00 UTC) employees are going home — stop miss punch alerts
+        if (LocalTime.now().isAfter(LocalTime.of(14, 0))) return;
+
         LocalDateTime now = LocalDateTime.now();
         List<EmployeeLiveStatus> outside = liveRepo.findByStatusIn(
                 List.of("BREAK", "LUNCH"));
@@ -165,6 +172,29 @@ public class AttendanceProcessingService {
         }
         // Broadcast if any status changed to MISS_PUNCH
         sseService.broadcastLive(dashboardService.getLiveAttendance());
+    }
+
+    // ── Scheduled: End-of-day auto-offline at 7:30 PM ─────────────────────
+
+    @Scheduled(cron = "0 0 14 * * *")   // 14:00 UTC = 19:30 IST
+    @Transactional
+    public void autoOfflineEndOfDay() {
+        List<EmployeeLiveStatus> open = liveRepo.findByStatusIn(
+                List.of("BREAK", "LUNCH", "MISS_PUNCH"));
+
+        for (EmployeeLiveStatus live : open) {
+            live.setStatus("OFFLINE");
+            live.setMissPunchNotified(false);
+            live.setUpdatedAt(LocalDateTime.now());
+            liveRepo.save(live);
+            updateDailySummary(live, LocalDate.now());
+            notificationService.markAllReadForEmployee(live.getEmployeeId());
+        }
+
+        if (!open.isEmpty()) {
+            log.info("Auto-offline: {} employees set to OFFLINE at end of day", open.size());
+            sseService.broadcastLive(dashboardService.getLiveAttendance());
+        }
     }
 
     // ── Scheduled: Daily reset at midnight ─────────────────────────────────
@@ -226,6 +256,25 @@ public class AttendanceProcessingService {
         }
 
         log.info("Daily reset complete for {} employees", allLive.size());
+
+        // Sync timesheet working_hours with final attendance for yesterday
+        syncTimesheetHours(yesterday);
+    }
+
+    private void syncTimesheetHours(LocalDate date) {
+        List<com.wilotus.timetracker.entity.Timesheet> sheets =
+                timesheetRepo.findByWorkingDateAndStatusIn(date, List.of("DRAFT", "SUBMITTED"));
+        if (sheets.isEmpty()) return;
+        for (com.wilotus.timetracker.entity.Timesheet ts : sheets) {
+            summaryRepo.findByEmployeeIdAndDate(ts.getEmployeeId(), date).ifPresent(summary -> {
+                long mins = summary.getTotalWorkMs() / 60_000L;
+                if (mins > 0) {
+                    ts.setWorkingHours((int) mins);
+                    timesheetRepo.save(ts);
+                }
+            });
+        }
+        log.info("Synced timesheet hours for {} entries on {}", sheets.size(), date);
     }
 
     private void saveHolidaySummary(String employeeId, LocalDate date) {
@@ -264,9 +313,10 @@ public class AttendanceProcessingService {
     private String calculateLateStatus(LocalTime entryTime) {
         LocalTime late     = LocalTime.parse(lateAfter,     DateTimeFormatter.ofPattern("HH:mm"));
         LocalTime veryLate = LocalTime.parse(veryLateAfter, DateTimeFormatter.ofPattern("HH:mm"));
-
-        if (entryTime.isAfter(veryLate) || entryTime.equals(veryLate)) return "VERY_LATE";
-        if (entryTime.isAfter(late))                                    return "LATE";
+        // Truncate to minutes so 09:15:xx is treated as 09:15 (On Time), not as after 09:15:00
+        LocalTime t = entryTime.truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        if (t.isAfter(veryLate) || t.equals(veryLate)) return "VERY_LATE";
+        if (t.isAfter(late))                            return "LATE";
         return "NORMAL";
     }
 
@@ -293,7 +343,40 @@ public class AttendanceProcessingService {
         }
     }
 
-    private void buildDailySummaryFromRaw(String employeeId, LocalDate date) {
+    // ── Admin: manually add a punch record ─────────────────────────────────────
+
+    @Transactional
+    public void addManualPunch(String employeeId, LocalDate date, String timeStr, int punchState) {
+        // Parse time "HH:MM" → LocalDateTime
+        String[] parts = timeStr.split(":");
+        LocalDateTime punchTime = date.atTime(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+
+        // Save raw record (not a device punch — deviceId = "MANUAL")
+        AttendanceRaw raw = AttendanceRaw.builder()
+                .employeeId(employeeId)
+                .punchTime(punchTime)
+                .punchState(punchState)
+                .deviceId("MANUAL")
+                .processed(true)
+                .build();
+        rawRepo.save(raw);
+        rawRepo.flush();
+
+        // Rebuild daily summary from all raw records for that day
+        summaryRepo.findByEmployeeIdAndDate(employeeId, date)
+                   .ifPresent(summaryRepo::delete);
+        summaryRepo.flush();
+        buildDailySummaryFromRaw(employeeId, date);
+
+        // If today, also rebuild live status so the live monitor reflects the change
+        if (date.equals(LocalDate.now())) {
+            rebuildLiveStatusToday();
+        }
+
+        log.info("Manual punch added: emp={} date={} time={} state={}", employeeId, date, timeStr, punchState);
+    }
+
+    public void buildDailySummaryFromRaw(String employeeId, LocalDate date) {
         List<AttendanceRaw> punches = rawRepo.findByEmployeeIdAndPunchTimeBetweenOrderByPunchTimeAsc(
                 employeeId, date.atStartOfDay(), date.atTime(23, 59, 59));
         if (punches.isEmpty()) return;
@@ -424,12 +507,16 @@ public class AttendanceProcessingService {
                         return s;
                     });
 
-            // Deduplicate by minute (same rule as buildDailySummaryFromRaw)
+            // Deduplicate by second (NOT by minute).
+            // Minute-level dedup would silently drop a real OUT punch if an IN punch
+            // happened in the same minute (e.g. OUT 16:57:30 → IN 16:57:47 only 17s apart).
+            // Second-level keeps both; only true ghost punches (same second, different state)
+            // are collapsed — preferring IN over OUT, matching ZKTeco behaviour.
             Map<LocalDateTime, AttendanceRaw> dedupMap = new LinkedHashMap<>();
             for (AttendanceRaw p : entry.getValue()) {
-                LocalDateTime minute = p.getPunchTime().truncatedTo(ChronoUnit.MINUTES);
-                if (!dedupMap.containsKey(minute) || p.getPunchState() == 0) {
-                    dedupMap.put(minute, p);
+                LocalDateTime sec = p.getPunchTime().truncatedTo(ChronoUnit.SECONDS);
+                if (!dedupMap.containsKey(sec) || p.getPunchState() == 0) {
+                    dedupMap.put(sec, p);
                 }
             }
 
@@ -439,6 +526,7 @@ public class AttendanceProcessingService {
             }
             live.setUpdatedAt(LocalDateTime.now());
             liveRepo.save(live);
+            buildDailySummaryFromRaw(live.getEmployeeId(), today);
         }
 
         sseService.broadcastLive(dashboardService.getLiveAttendance());
@@ -457,6 +545,7 @@ public class AttendanceProcessingService {
             liveRepo.save(live);
             updateDailySummary(live, LocalDate.now());
         });
+        notificationService.markAllReadForEmployee(employeeId);
         sseService.broadcastLive(dashboardService.getLiveAttendance());
     }
 }

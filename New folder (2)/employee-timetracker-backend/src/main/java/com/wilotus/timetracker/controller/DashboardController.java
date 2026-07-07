@@ -21,26 +21,29 @@ public class DashboardController {
     private final AttendanceProcessingService attendanceService;
 
     @GetMapping("/metrics")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
     public ResponseEntity<DashboardMetricsDto> getMetrics() {
         return ResponseEntity.ok(dashboardService.getMetrics());
     }
 
     @GetMapping("/live")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
     public ResponseEntity<List<LiveStatusDto>> getLive() {
         return ResponseEntity.ok(dashboardService.getLiveAttendance());
     }
 
-    /** One-shot admin endpoint: fix punch states + rebuild all daily summaries + refresh live status */
+    /** Trigger device_sync.py on the server to rebuild attendance data */
     @PostMapping("/admin/rebuild-data")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','HR')")
     public ResponseEntity<Map<String, String>> rebuildData() {
-        String historicalResult = attendanceService.rebuildHistoricalSummaries();
-        String liveResult       = attendanceService.rebuildLiveStatusToday();
-        return ResponseEntity.ok(Map.of(
-                "historical", historicalResult,
-                "live",       liveResult
-        ));
+        try {
+            new ProcessBuilder("python3", "/home/ubuntu/device_sync.py")
+                    .redirectErrorStream(true)
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+            return ResponseEntity.ok(Map.of("status", "started"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
     }
 }

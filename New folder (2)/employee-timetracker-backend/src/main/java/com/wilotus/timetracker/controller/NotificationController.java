@@ -13,7 +13,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+@PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
 public class NotificationController {
 
     private final NotificationService notificationService;
@@ -38,5 +38,17 @@ public class NotificationController {
     public ResponseEntity<?> markOneRead(@PathVariable Long id) {
         notificationService.markOneRead(id);
         return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @DeleteMapping("/resolved")
+    public ResponseEntity<?> clearResolved() {
+        notificationService.deleteAllResolved();
+        return ResponseEntity.ok(Map.of("status", "cleared"));
+    }
+
+    @DeleteMapping("/all")
+    public ResponseEntity<?> clearAll() {
+        notificationService.deleteAll();
+        return ResponseEntity.ok(Map.of("status", "cleared"));
     }
 }

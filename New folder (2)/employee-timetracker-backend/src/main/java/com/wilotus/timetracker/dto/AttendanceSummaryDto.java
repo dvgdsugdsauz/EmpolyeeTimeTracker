@@ -6,6 +6,7 @@ import java.time.LocalTime;
 
 @Data
 public class AttendanceSummaryDto {
+    private Long id;
     private String employeeId;
     private String employeeName;
     private String dept;
@@ -18,4 +19,6 @@ public class AttendanceSummaryDto {
     private String lateStatus;
     private String status;
     private boolean approved;
+    private String overrideStatus;
+    private String overrideComment;
 }

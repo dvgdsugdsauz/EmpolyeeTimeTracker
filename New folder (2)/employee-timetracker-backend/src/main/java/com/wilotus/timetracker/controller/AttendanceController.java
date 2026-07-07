@@ -48,6 +48,18 @@ public class AttendanceController {
         }
     }
 
+    // Called by device_sync.py after bulk insert — rebuilds live status from today's raw punches
+    @PostMapping("/rebuild-live-today")
+    public ResponseEntity<?> rebuildLiveToday() {
+        try {
+            String result = processingService.rebuildLiveStatusToday();
+            sseService.broadcastLive(dashboardService.getLiveAttendance());
+            return ResponseEntity.ok(Map.of("status", result));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Employee's own attendance for today
     @GetMapping("/my")
     public ResponseEntity<LiveStatusDto> getMyAttendance(Authentication auth) {
@@ -129,7 +141,7 @@ public class AttendanceController {
 
     // Admin/Manager: all employees' summaries for a single date
     @GetMapping("/daily")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
     public ResponseEntity<List<AttendanceSummaryDto>> getDailySummary(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         List<AttendanceDailySummary> summaries = summaryRepo.findByDateOrderByEmployeeIdAsc(date);
@@ -143,9 +155,55 @@ public class AttendanceController {
         return ResponseEntity.ok(result);
     }
 
+    // Admin/Manager: today's punch log for any employee
+    @GetMapping("/today-punches/{employeeId}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
+    public ResponseEntity<List<Map<String, Object>>> getTodayPunchesForEmployee(
+            @PathVariable String employeeId) {
+        LocalDate today = LocalDate.now();
+        var punches = rawRepo.findByEmployeeIdAndPunchTimeBetweenOrderByPunchTimeAsc(
+                employeeId, today.atStartOfDay(), today.atTime(23, 59, 59));
+        var result = punches.stream().map(p -> {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("time",  p.getPunchTime());
+            m.put("state", p.getPunchState() == 0 ? "IN" : "OUT");
+            return m;
+        }).toList();
+        return ResponseEntity.ok(result);
+    }
+
+    // Admin: manually add a punch record for any employee on any date
+    @PostMapping("/admin-punch")
+    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    public ResponseEntity<?> addManualPunch(@RequestBody Map<String, String> body) {
+        String employeeId = body.get("employeeId");
+        LocalDate date    = LocalDate.parse(body.get("date"));
+        String time       = body.get("time");
+        int punchState    = Integer.parseInt(body.get("punchState"));
+        processingService.addManualPunch(employeeId, date, time, punchState);
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    // Admin/Manager: punch log for any employee on a specific date
+    @GetMapping("/punches/{employeeId}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
+    public ResponseEntity<List<Map<String, Object>>> getPunchesForEmployeeByDate(
+            @PathVariable String employeeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        var punches = rawRepo.findByEmployeeIdAndPunchTimeBetweenOrderByPunchTimeAsc(
+                employeeId, date.atStartOfDay(), date.atTime(23, 59, 59));
+        var result = punches.stream().map(p -> {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("time",  p.getPunchTime());
+            m.put("state", p.getPunchState() == 0 ? "IN" : "OUT");
+            return m;
+        }).toList();
+        return ResponseEntity.ok(result);
+    }
+
     // Admin/Manager: history for any employee
     @GetMapping("/history")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
     public ResponseEntity<List<AttendanceSummaryDto>> getHistory(
             @RequestParam String employeeId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -160,7 +218,7 @@ public class AttendanceController {
 
     // Approve offline
     @PostMapping("/approve-offline/{employeeId}")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
     public ResponseEntity<?> approveOffline(@PathVariable String employeeId) {
         processingService.approveOffline(employeeId);
         return ResponseEntity.ok(Map.of("status", "approved"));
@@ -168,7 +226,7 @@ public class AttendanceController {
 
     // Export to Excel
     @GetMapping("/export")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','HR')")
     public ResponseEntity<byte[]> exportExcel(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) throws Exception {
@@ -200,8 +258,37 @@ public class AttendanceController {
         return emitter;
     }
 
+    // Manager/Admin override day status
+    @PostMapping("/override-status")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
+    public ResponseEntity<?> overrideStatus(@RequestBody Map<String, String> body) {
+
+        String employeeId     = body.get("employeeId");
+        String dateStr        = body.get("date");
+        String overrideStatus = body.get("overrideStatus");
+
+        LocalDate date = LocalDate.parse(dateStr);
+        AttendanceDailySummary summary = summaryRepo.findByEmployeeIdAndDate(employeeId, date)
+                .orElseGet(() -> {
+                    AttendanceDailySummary s = new AttendanceDailySummary();
+                    s.setEmployeeId(employeeId);
+                    s.setDate(date);
+                    s.setStatus("ABSENT");
+                    s.setLateStatus("NORMAL");
+                    return s;
+                });
+
+        String overrideComment = body.get("overrideComment");
+        boolean clearing = "CLEAR".equals(overrideStatus);
+        summary.setOverrideStatus(clearing ? null : overrideStatus);
+        summary.setOverrideComment(clearing ? null : (overrideComment != null && !overrideComment.isBlank() ? overrideComment.trim() : null));
+        summaryRepo.save(summary);
+        return ResponseEntity.ok(Map.of("status", "updated"));
+    }
+
     private AttendanceSummaryDto toSummaryDto(AttendanceDailySummary s, Employee emp) {
         AttendanceSummaryDto dto = new AttendanceSummaryDto();
+        dto.setId(s.getId());
         dto.setEmployeeId(s.getEmployeeId());
         dto.setEmployeeName(emp.getName());
         dto.setDept(emp.getDept());
@@ -214,6 +301,8 @@ public class AttendanceController {
         dto.setLateStatus(s.getLateStatus());
         dto.setStatus(s.getStatus());
         dto.setApproved(s.isApproved());
+        dto.setOverrideStatus(s.getOverrideStatus());
+        dto.setOverrideComment(s.getOverrideComment());
         return dto;
     }
 }

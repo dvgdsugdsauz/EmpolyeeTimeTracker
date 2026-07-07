@@ -46,4 +46,11 @@ public class AttendanceDailySummary {
 
     @Column(nullable = false)
     private boolean approved = false;
+
+    // Manager/Admin manual override — null means use computed status
+    @Column
+    private String overrideStatus;
+
+    @Column(length = 500)
+    private String overrideComment;
 }

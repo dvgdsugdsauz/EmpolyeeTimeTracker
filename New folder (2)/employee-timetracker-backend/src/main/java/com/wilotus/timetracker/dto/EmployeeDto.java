@@ -14,4 +14,5 @@ public class EmployeeDto {
     private String designation;
     private String avatar;
     private boolean active;
+    private boolean timesheetAccess;
 }

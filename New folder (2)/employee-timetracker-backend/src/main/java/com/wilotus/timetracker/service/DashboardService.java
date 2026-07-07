@@ -21,7 +21,7 @@ public class DashboardService {
     private final AttendanceDailySummaryRepository summaryRepo;
 
     public DashboardMetricsDto getMetrics() {
-        List<Employee> employees = employeeRepo.findByRoleAndActiveTrue("employee");
+        List<Employee> employees = employeeRepo.findByActiveTrue();
         List<EmployeeLiveStatus> allLive = liveRepo.findAll();
 
         Map<String, EmployeeLiveStatus> liveMap = new HashMap<>();

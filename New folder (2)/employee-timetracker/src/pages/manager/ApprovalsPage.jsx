@@ -10,7 +10,13 @@ function timeAgo(iso) {
   return `${h}h ${m % 60}m ago`
 }
 
-export default function ApprovalsPage({ notifications, onApproveOffline, onMarkRead }) {
+function formatType(type) {
+  if (type === 'MISS_PUNCH')   return 'MISS PUNCH'
+  if (type === 'EARLY_LOGOFF') return 'EARLY LOGOFF'
+  return (type || '').replace(/_/g, ' ')
+}
+
+export default function ApprovalsPage({ notifications, onApproveOffline, onMarkRead, onClearResolved }) {
   const pending  = notifications.filter(n => !n.resolved)
   const resolved = notifications.filter(n => n.resolved)
 
@@ -22,15 +28,29 @@ export default function ApprovalsPage({ notifications, onApproveOffline, onMarkR
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Approvals</h2>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-            Review and approve miss punch alerts
+            Review and approve attendance alerts
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <div style={{ padding: '6px 16px', borderRadius: 20, background: '#fee2e2', color: '#dc2626', fontSize: 13, fontWeight: 600 }}>
             {pending.length} Pending
           </div>
-          <div style={{ padding: '6px 16px', borderRadius: 20, background: '#dcfce7', color: '#16a34a', fontSize: 13, fontWeight: 600 }}>
-            {resolved.length} Approved
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ padding: '6px 16px', borderRadius: 20, background: '#dcfce7', color: '#16a34a', fontSize: 13, fontWeight: 600 }}>
+              {resolved.length} Resolved
+            </div>
+            {resolved.length > 0 && (
+              <button
+                onClick={onClearResolved}
+                style={{
+                  padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+                  background: '#f1f5f9', color: '#64748b',
+                  border: '1px solid #e2e8f0', cursor: 'pointer',
+                }}
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -58,8 +78,8 @@ export default function ApprovalsPage({ notifications, onApproveOffline, onMarkR
                 flexWrap: 'wrap', gap: 16,
                 padding: '16px 20px',
                 borderRadius: 10,
-                background: '#fff5f5',
-                border: '1.5px solid #fecaca',
+                background: n.type === 'EARLY_LOGOFF' ? '#fffbeb' : '#fff5f5',
+                border: `1.5px solid ${n.type === 'EARLY_LOGOFF' ? '#fde68a' : '#fecaca'}`,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{
@@ -79,11 +99,11 @@ export default function ApprovalsPage({ notifications, onApproveOffline, onMarkR
                 <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px' }}>Alert</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>MISS PUNCH</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: n.type === 'EARLY_LOGOFF' ? '#d97706' : '#dc2626' }}>{formatType(n.type)}</div>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px' }}>Outside For</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>{n.message}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px' }}>Details</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: n.type === 'EARLY_LOGOFF' ? '#d97706' : '#dc2626' }}>{n.message}</div>
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px' }}>Time</div>
@@ -92,23 +112,28 @@ export default function ApprovalsPage({ notifications, onApproveOffline, onMarkR
                 </div>
 
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => onApproveOffline(n.employeeId)}
-                    style={{
-                      padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                      background: '#1e293b', color: '#fff', border: 'none', cursor: 'pointer',
-                    }}
-                  >
-                    Approve Offline
-                  </button>
+                  {n.type === 'MISS_PUNCH' && (
+                    <button
+                      onClick={() => onApproveOffline(n.employeeId)}
+                      style={{
+                        padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                        background: '#1e293b', color: '#fff', border: 'none', cursor: 'pointer',
+                      }}
+                    >
+                      Approve Offline
+                    </button>
+                  )}
                   <button
                     onClick={() => onMarkRead(n.id)}
                     style={{
                       padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                      background: '#f1f5f9', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer',
+                      background: n.type === 'EARLY_LOGOFF' ? '#1e293b' : '#f1f5f9',
+                      color: n.type === 'EARLY_LOGOFF' ? '#fff' : 'var(--text-muted)',
+                      border: n.type === 'EARLY_LOGOFF' ? 'none' : '1px solid var(--border)',
+                      cursor: 'pointer',
                     }}
                   >
-                    Dismiss
+                    {n.type === 'EARLY_LOGOFF' ? 'Approve' : 'Dismiss'}
                   </button>
                 </div>
               </div>

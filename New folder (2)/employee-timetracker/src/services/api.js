@@ -1,7 +1,7 @@
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:8080' : '')
 
 function getToken() {
-  return localStorage.getItem('tt_token')
+  return sessionStorage.getItem('tt_token')
 }
 
 async function request(path, options = {}) {
@@ -18,7 +18,9 @@ async function request(path, options = {}) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error || 'Request failed')
   }
-  return res.status !== 204 ? res.json() : null
+  if (res.status === 204) return null
+  const ct = res.headers.get('content-type') || ''
+  return ct.includes('application/json') ? res.json() : null
 }
 
 // ── Real-time SSE stream ───────────────────────────────────────────────────
@@ -51,13 +53,35 @@ export async function login(identifier, password) {
     method: 'POST',
     body: JSON.stringify({ identifier, password }),
   })
-  localStorage.setItem('tt_token', data.token)
+  sessionStorage.setItem('tt_token', data.token)
   return data
 }
 
 export function logout() {
-  localStorage.removeItem('tt_token')
-  localStorage.removeItem('tt_user')
+  sessionStorage.removeItem('tt_token')
+  sessionStorage.removeItem('tt_user')
+}
+
+/**
+ * Verify the stored token against the server.
+ * Returns { valid: true, user } on success,
+ *         { valid: false } on 401 (token invalid/expired),
+ *         null on network errors or server errors (don't force logout).
+ */
+export async function verifySession() {
+  const token = getToken()
+  if (!token) return { valid: false }
+  try {
+    const res = await fetch(`${BASE}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.status === 401 || res.status === 403) return { valid: false }
+    if (!res.ok) return null // server error — don't touch the session
+    const user = await res.json()
+    return { valid: true, user }
+  } catch {
+    return null // network error — don't touch the session
+  }
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -93,6 +117,22 @@ export function fetchTodayPunches() {
 
 // ── Admin / Manager ────────────────────────────────────────────────────────
 
+export function fetchEmployeeTodayPunches(employeeId) {
+  return request(`/api/attendance/today-punches/${employeeId}`)
+}
+
+export function fetchEmployeePunchesByDate(employeeId, date) {
+  return request(`/api/attendance/punches/${employeeId}?date=${date}`)
+}
+
+export function addManualPunch(employeeId, date, time, punchState) {
+  return request('/api/attendance/admin-punch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ employeeId, date, time, punchState: String(punchState) }),
+  })
+}
+
 export function fetchAttendanceHistory(employeeId, from, to) {
   return request(`/api/attendance/history?employeeId=${employeeId}&from=${from}&to=${to}`)
 }
@@ -103,6 +143,13 @@ export function fetchDailySummary(date) {
 
 export function approveOffline(employeeId) {
   return request(`/api/attendance/approve-offline/${employeeId}`, { method: 'POST' })
+}
+
+export function overrideAttendanceStatus(employeeId, date, overrideStatus, overrideComment) {
+  return request('/api/attendance/override-status', {
+    method: 'POST',
+    body: JSON.stringify({ employeeId, date, overrideStatus, overrideComment: overrideComment || null }),
+  })
 }
 
 export async function exportAttendance(from, to) {
@@ -141,6 +188,12 @@ export function deleteEmployee(id) {
 export function resetEmployeePassword(id, newPassword) {
   return request(`/api/employees/${id}/reset-password`, {
     method: 'POST', body: JSON.stringify({ newPassword }),
+  })
+}
+
+export function setTimesheetAccess(id, enabled) {
+  return request(`/api/employees/${id}/timesheet-access`, {
+    method: 'PATCH', body: JSON.stringify({ enabled }),
   })
 }
 
@@ -202,4 +255,72 @@ export function markAllRead() {
 
 export function markOneRead(id) {
   return request(`/api/notifications/${id}/read`, { method: 'POST' })
+}
+
+export function clearResolvedNotifications() {
+  return request('/api/notifications/resolved', { method: 'DELETE' })
+}
+
+export function clearAllNotifications() {
+  return request('/api/notifications/all', { method: 'DELETE' })
+}
+
+// ── Timesheets ─────────────────────────────────────────────────────────────
+
+export function fetchMyTimesheets() {
+  return request('/api/timesheets/my')
+}
+
+export function fetchTeamTimesheets() {
+  return request('/api/timesheets/team')
+}
+
+export function createTimesheet(dto) {
+  return request('/api/timesheets', { method: 'POST', body: JSON.stringify(dto) })
+}
+
+export function updateTimesheet(id, dto) {
+  return request(`/api/timesheets/${id}`, { method: 'PUT', body: JSON.stringify(dto) })
+}
+
+export function deleteTimesheet(id) {
+  return request(`/api/timesheets/${id}`, { method: 'DELETE' })
+}
+
+export function approveTimesheet(id) {
+  return request(`/api/timesheets/${id}/approve`, { method: 'POST' })
+}
+
+export function rejectTimesheet(id, reason) {
+  return request(`/api/timesheets/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) })
+}
+
+export function fetchTimesheetModules() {
+  return request('/api/timesheets/modules')
+}
+
+export function addTimesheetModule(moduleName) {
+  return request('/api/timesheets/modules', { method: 'POST', body: JSON.stringify({ moduleName }) })
+}
+
+export function deleteTimesheetModule(id) {
+  return request(`/api/timesheets/modules/${id}`, { method: 'DELETE' })
+}
+
+export function fetchTimesheetManagers() {
+  return request('/api/timesheets/managers')
+}
+
+export async function importTimesheets(formData) {
+  const token = getToken()
+  const res = await fetch(`${BASE}/api/admin/import-timesheets`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }))
+    throw new Error(err.error || 'Import failed')
+  }
+  return res.json()
 }
