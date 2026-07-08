@@ -223,8 +223,8 @@ export default function ManagerTaskPage() {
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflow: 'auto', borderRadius: 10, border: '1px solid var(--border, #2a3145)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div style={{ flex: 1, overflow: 'auto', borderRadius: 10, border: '1px solid #2a3145', background: '#0f172a' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: '#0f172a', color: '#e2e8f0' }}>
             <thead>
               <tr style={{ background: '#1a2340', position: 'sticky', top: 0, zIndex: 10 }}>
                 {/* Select All checkbox */}
@@ -261,7 +261,7 @@ export default function ManagerTaskPage() {
             <tbody>
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280', fontSize: 13 }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280', fontSize: 13, background: '#0f172a' }}>
                     {tasks.length === 0 ? 'No tasks yet — import an Excel file to begin' : 'No tasks match filters'}
                   </td>
                 </tr>
@@ -272,7 +272,7 @@ export default function ManagerTaskPage() {
                   <tr
                     key={t.taskId + i}
                     style={{
-                      background: isChecked ? 'rgba(99,102,241,.10)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.02)',
+                      background: isChecked ? 'rgba(99,102,241,.18)' : i % 2 === 0 ? '#0f172a' : '#111827',
                       borderLeft: isChecked ? '3px solid #6366f1' : '3px solid transparent',
                       transition: 'background .12s',
                     }}
@@ -286,7 +286,7 @@ export default function ManagerTaskPage() {
                         style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#6366f1' }}
                       />
                     </td>
-                    <td style={tdStyle} onClick={() => toggleOne(t.taskId)} style={{ ...tdStyle, cursor: 'pointer' }}>
+                    <td style={{ ...tdStyle, cursor: 'pointer' }} onClick={() => toggleOne(t.taskId)}>
                       <span style={{ fontWeight: 600, color: '#6366f1' }}>{t.taskId}</span>
                     </td>
                     <td style={{ ...tdStyle, cursor: 'pointer' }} onClick={() => toggleOne(t.taskId)}>{t.module}</td>
@@ -479,9 +479,9 @@ export default function ManagerTaskPage() {
 const thStyle = {
   padding: '11px 12px', textAlign: 'center', fontWeight: 600,
   fontSize: 12, color: '#e2e8f0', whiteSpace: 'nowrap',
-  borderBottom: '1px solid rgba(255,255,255,.08)',
+  borderBottom: '1px solid #1e293b', background: '#1a2340',
 }
 const tdStyle = {
-  padding: '10px 12px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,.04)',
-  verticalAlign: 'middle',
+  padding: '10px 12px', textAlign: 'center', borderBottom: '1px solid #1e293b',
+  verticalAlign: 'middle', color: '#cbd5e1',
 }
