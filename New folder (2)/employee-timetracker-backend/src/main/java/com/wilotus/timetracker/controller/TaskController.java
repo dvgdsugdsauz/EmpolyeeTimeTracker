@@ -48,4 +48,12 @@ public class TaskController {
         taskService.assignBulk(taskIds, employeeId);
         return ResponseEntity.ok(Map.of("assigned", taskIds.size()));
     }
+
+    @PutMapping("/{taskId}/my-update")
+    public TaskDto updateMyTask(
+            @PathVariable String taskId,
+            @RequestBody TaskDto update,
+            Authentication auth) {
+        return taskService.updateMyTask(taskId, auth.getName(), update);
+    }
 }

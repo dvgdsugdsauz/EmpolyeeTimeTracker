@@ -22,8 +22,8 @@ public class TaskService {
         return taskRepository.findAll().stream().map(this::toDto).collect(Collectors.toList());
     }
 
-    public List<TaskDto> getMyTasks(String employeeId) {
-        return taskRepository.findByAssignedTo(employeeId).stream().map(this::toDto).collect(Collectors.toList());
+    public List<TaskDto> getMyTasks(String username) {
+        return taskRepository.findByAssignedTo(username).stream().map(this::toDto).collect(Collectors.toList());
     }
 
     public void importTasks(List<TaskDto> dtos) {
@@ -35,6 +35,9 @@ public class TaskService {
             t.setType(dto.getType());
             t.setPriority(dto.getPriority());
             t.setTicketRef(dto.getTicketRef());
+            t.setRole(dto.getRole());
+            t.setQaAssigned(dto.getQaAssigned());
+            t.setTargetDate(dto.getTargetDate());
             t.setStatus(dto.getStatus() != null ? dto.getStatus() : "Pending");
             return t;
         }).collect(Collectors.toList());
@@ -63,6 +66,20 @@ public class TaskService {
         taskRepository.saveAll(tasks);
     }
 
+    public TaskDto updateMyTask(String taskId, String username, TaskDto update) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
+        if (!username.equals(task.getAssignedTo())) {
+            throw new RuntimeException("Not authorized to update this task");
+        }
+        if (update.getActualStartDateTime() != null) task.setActualStartDateTime(update.getActualStartDateTime());
+        if (update.getActualEndDateTime()   != null) task.setActualEndDateTime(update.getActualEndDateTime());
+        if (update.getStatus()              != null) task.setStatus(update.getStatus());
+        if (update.getRemarks()             != null) task.setRemarks(update.getRemarks());
+        taskRepository.save(task);
+        return toDto(task);
+    }
+
     private TaskDto toDto(Task t) {
         TaskDto d = new TaskDto();
         d.setTaskId(t.getTaskId());
@@ -71,7 +88,13 @@ public class TaskService {
         d.setType(t.getType());
         d.setPriority(t.getPriority());
         d.setTicketRef(t.getTicketRef());
+        d.setRole(t.getRole());
+        d.setQaAssigned(t.getQaAssigned());
+        d.setTargetDate(t.getTargetDate());
         d.setStatus(t.getStatus());
+        d.setActualStartDateTime(t.getActualStartDateTime());
+        d.setActualEndDateTime(t.getActualEndDateTime());
+        d.setRemarks(t.getRemarks());
         d.setAssignedTo(t.getAssignedTo());
         d.setAssignedToName(t.getAssignedToName());
         return d;

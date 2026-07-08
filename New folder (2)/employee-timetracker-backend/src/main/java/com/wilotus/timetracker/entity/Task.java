@@ -27,8 +27,26 @@ public class Task {
     @Column(name = "ticket_ref")
     private String ticketRef;
 
+    @Column(name = "role")
+    private String role;
+
+    @Column(name = "qa_assigned")
+    private String qaAssigned;
+
+    @Column(name = "target_date")
+    private String targetDate;
+
     @Column(name = "status")
     private String status;
+
+    @Column(name = "actual_start_datetime")
+    private String actualStartDateTime;
+
+    @Column(name = "actual_end_datetime")
+    private String actualEndDateTime;
+
+    @Column(name = "remarks", columnDefinition = "TEXT")
+    private String remarks;
 
     @Column(name = "assigned_to")
     private String assignedTo;

@@ -333,6 +333,12 @@ export function assignTasksBulk(taskIds, employeeId) {
   })
 }
 
+export function updateMyTask(taskId, dto) {
+  return request(`/api/tasks/${encodeURIComponent(taskId)}/my-update`, {
+    method: 'PUT', body: JSON.stringify(dto),
+  })
+}
+
 export function fetchTimesheetManagers() {
   return request('/api/timesheets/managers')
 }

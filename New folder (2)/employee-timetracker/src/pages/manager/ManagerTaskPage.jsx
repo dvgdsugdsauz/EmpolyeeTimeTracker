@@ -309,6 +309,9 @@ export default function ManagerTaskPage() {
           type:        r['Type']             || r['type']        || '',
           priority:    r['Priority']         || r['priority']    || '',
           ticketRef:   r['Ticket Ref']       || r['ticketRef']   || '',
+          role:        r['Role']             || r['role']        || '',
+          qaAssigned:  r['QA Assigned']      || r['qaAssigned']  || '',
+          targetDate:  r['Target Date']      || r['targetDate']  || '',
           status:      r['Status']           || r['status']      || 'Pending',
         }))
         await api.importTasks(mapped)
