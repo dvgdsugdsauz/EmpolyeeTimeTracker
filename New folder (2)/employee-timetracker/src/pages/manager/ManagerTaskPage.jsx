@@ -423,14 +423,14 @@ export default function ManagerTaskPage() {
             {assignEmp && (
               <div style={{
                 marginTop: 8, display: 'flex', alignItems: 'center', gap: 8,
-                padding: '7px 12px', borderRadius: 8, background: 'rgba(34,197,94,.1)',
-                border: '1px solid rgba(34,197,94,.25)', fontSize: 13,
+                padding: '7px 12px', borderRadius: 8, background: 'rgba(99,102,241,.12)',
+                border: '1px solid rgba(99,102,241,.3)', fontSize: 13,
               }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                   <circle cx="12" cy="7" r="4"/>
                 </svg>
-                <span style={{ fontWeight: 600, color: '#22c55e' }}>{assignEmp.name}</span>
+                <span style={{ fontWeight: 600, color: '#818cf8' }}>{assignEmp.name}</span>
               </div>
             )}
           </div>
@@ -455,6 +455,19 @@ export default function ManagerTaskPage() {
             {assigning
               ? 'Assigning…'
               : `Assign ${checkedIds.size} Task${checkedIds.size > 1 ? 's' : ''}`}
+          </button>
+
+          {/* Cancel Button */}
+          <button
+            onClick={() => { setCheckedIds(new Set()); setAssignEmp(null); setEmpSearch('') }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '11px 0', borderRadius: 9, cursor: 'pointer',
+              background: 'transparent', border: '1px solid var(--border, #2a3145)',
+              color: '#9ca3af', fontWeight: 600, fontSize: 14,
+            }}
+          >
+            Cancel
           </button>
         </div>
       )}
