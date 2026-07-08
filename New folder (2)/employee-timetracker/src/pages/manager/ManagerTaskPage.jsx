@@ -142,7 +142,7 @@ export default function ManagerTaskPage() {
   }
 
   const filteredEmps = employees.filter(e =>
-    e.name.toLowerCase().includes(empSearch.toLowerCase()) ||
+    (e.name || '').toLowerCase().includes(empSearch.toLowerCase()) ||
     (e.username || '').toLowerCase().includes(empSearch.toLowerCase())
   )
 
@@ -411,7 +411,7 @@ export default function ManagerTaskPage() {
                         display: 'flex', flexDirection: 'column', gap: 2,
                       }}
                     >
-                      <span style={{ fontWeight: 600 }}>{emp.name}</span>
+                      <span style={{ fontWeight: 600 }}>{emp.name || emp.username}</span>
                       <span style={{ fontSize: 11, color: '#6b7280' }}>{emp.dept} · {emp.designation}</span>
                     </div>
                   ))}
