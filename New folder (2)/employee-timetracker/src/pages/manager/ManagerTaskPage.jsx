@@ -206,7 +206,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
                       onMouseLeave={e => { e.currentTarget.style.background = assignEmp?.id === emp.id ? '#eef2ff' : '#fff' }}
                     >
                       <span style={{ fontWeight: 600, color: '#1e293b' }}>{emp.name || emp.username}</span>
-                      <span style={{ fontSize: 11, color: '#94a3b8' }}>{emp.dept} · {emp.designation}</span>
+                      <span style={{ fontSize: 11, color: '#94a3b8' }}>{emp.designation} · {emp.dept}</span>
                     </div>
                   ))}
                 </div>
@@ -224,7 +224,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
                   <circle cx="12" cy="7" r="4"/>
                 </svg>
                 <span style={{ fontWeight: 600, color: '#6366f1' }}>{assignEmp.name}</span>
-                <span style={{ fontSize: 11, color: '#8b5cf6', marginLeft: 'auto' }}>{assignEmp.dept}</span>
+                <span style={{ fontSize: 11, color: '#8b5cf6', marginLeft: 'auto' }}>{assignEmp.designation}</span>
               </div>
             )}
 

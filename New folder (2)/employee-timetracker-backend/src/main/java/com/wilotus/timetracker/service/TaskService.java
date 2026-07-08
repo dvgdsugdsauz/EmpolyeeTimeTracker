@@ -46,7 +46,7 @@ public class TaskService {
                 .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
         Employee emp = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new RuntimeException("Employee not found: " + employeeId));
-        task.setAssignedTo(emp.getId());
+        task.setAssignedTo(emp.getUsername());
         task.setAssignedToName(emp.getName());
         taskRepository.save(task);
         return toDto(task);
@@ -57,7 +57,7 @@ public class TaskService {
                 .orElseThrow(() -> new RuntimeException("Employee not found: " + employeeId));
         List<Task> tasks = taskRepository.findAllById(taskIds);
         tasks.forEach(t -> {
-            t.setAssignedTo(emp.getId());
+            t.setAssignedTo(emp.getUsername());
             t.setAssignedToName(emp.getName());
         });
         taskRepository.saveAll(tasks);
