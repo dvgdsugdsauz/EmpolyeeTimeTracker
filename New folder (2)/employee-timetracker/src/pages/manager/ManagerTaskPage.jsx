@@ -398,20 +398,21 @@ export default function ManagerTaskPage() {
               {empDropOpen && filteredEmps.length > 0 && (
                 <div style={{
                   position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, marginTop: 4,
-                  background: 'var(--card-bg, #1e2435)', border: '1px solid var(--border, #2a3145)',
-                  borderRadius: 8, maxHeight: 180, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,.3)',
+                  background: '#1a2035', border: '1px solid #2a3145',
+                  borderRadius: 8, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,.5)',
                 }}>
                   {filteredEmps.map(emp => (
                     <div
                       key={emp.id}
-                      onClick={() => { setAssignEmp(emp); setEmpSearch(emp.name); setEmpDropOpen(false) }}
+                      onClick={() => { setAssignEmp(emp); setEmpSearch(emp.name || emp.username); setEmpDropOpen(false) }}
                       style={{
-                        padding: '8px 12px', cursor: 'pointer', fontSize: 13,
-                        background: assignEmp?.id === emp.id ? 'rgba(99,102,241,.15)' : 'none',
-                        display: 'flex', flexDirection: 'column', gap: 2,
+                        padding: '9px 14px', cursor: 'pointer', fontSize: 13,
+                        background: assignEmp?.id === emp.id ? 'rgba(99,102,241,.2)' : 'transparent',
+                        display: 'flex', flexDirection: 'column', gap: 3,
+                        borderBottom: '1px solid rgba(255,255,255,.05)',
                       }}
                     >
-                      <span style={{ fontWeight: 600 }}>{emp.name || emp.username}</span>
+                      <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{emp.name || emp.username}</span>
                       <span style={{ fontSize: 11, color: '#6b7280' }}>{emp.dept} · {emp.designation}</span>
                     </div>
                   ))}
