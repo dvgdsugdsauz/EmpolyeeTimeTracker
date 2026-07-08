@@ -325,7 +325,7 @@ export default function ManagerTaskPage() {
         <div style={{
           width: 320, flexShrink: 0, background: 'var(--card-bg, #1e2435)',
           borderRadius: 12, border: '1px solid var(--border, #2a3145)',
-          padding: 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto',
+          padding: 20, display: 'flex', flexDirection: 'column', gap: 14,
         }}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
