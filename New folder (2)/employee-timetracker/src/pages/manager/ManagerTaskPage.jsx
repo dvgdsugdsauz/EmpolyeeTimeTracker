@@ -463,8 +463,8 @@ export default function ManagerTaskPage() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               padding: '11px 0', borderRadius: 9, cursor: 'pointer',
-              background: 'transparent', border: '1px solid var(--border, #2a3145)',
-              color: '#9ca3af', fontWeight: 600, fontSize: 14,
+              background: '#374151', border: 'none',
+              color: '#d1d5db', fontWeight: 600, fontSize: 14,
             }}
           >
             Cancel
