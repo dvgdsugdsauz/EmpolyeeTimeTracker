@@ -327,6 +327,12 @@ export function assignTask(taskId, employeeId) {
   })
 }
 
+export function assignTasksBulk(taskIds, employeeId) {
+  return request('/api/tasks/assign-bulk', {
+    method: 'POST', body: JSON.stringify({ taskIds, employeeId }),
+  })
+}
+
 export function fetchTimesheetManagers() {
   return request('/api/timesheets/managers')
 }

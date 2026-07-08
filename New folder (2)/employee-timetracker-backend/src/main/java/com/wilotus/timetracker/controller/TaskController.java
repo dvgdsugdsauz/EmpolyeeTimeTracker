@@ -39,4 +39,13 @@ public class TaskController {
             @RequestBody Map<String, String> body) {
         return taskService.assignTask(taskId, body.get("employeeId"));
     }
+
+    @PostMapping("/assign-bulk")
+    public ResponseEntity<Map<String, Object>> assignBulk(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<String> taskIds = (List<String>) body.get("taskIds");
+        String employeeId = (String) body.get("employeeId");
+        taskService.assignBulk(taskIds, employeeId);
+        return ResponseEntity.ok(Map.of("assigned", taskIds.size()));
+    }
 }

@@ -2,16 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import * as api from '../../services/api'
 
-const COLS = [
-  { key: 'taskId',      label: 'Task ID' },
-  { key: 'module',      label: 'Module' },
-  { key: 'description', label: 'Task Description' },
-  { key: 'type',        label: 'Type' },
-  { key: 'priority',    label: 'Priority' },
-  { key: 'ticketRef',   label: 'Ticket Ref' },
-  { key: 'status',      label: 'Status' },
-]
-
 const PRIORITY_COLOR = { High: '#ef4444', Medium: '#f59e0b', Low: '#22c55e' }
 const STATUS_COLOR   = { Completed: '#22c55e', 'In Progress': '#3b82f6', Pending: '#f59e0b' }
 
@@ -30,13 +20,14 @@ function FilterDropdown({ label, options, value, onChange }) {
         border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 13, padding: '2px 4px',
       }}>
         {label}
+        {value && <span style={{ color: '#6366f1', fontSize: 11 }}>●</span>}
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
       </button>
       {open && (
         <div style={{
-          position: 'absolute', top: '100%', left: 0, zIndex: 100, minWidth: 150,
+          position: 'absolute', top: '100%', left: 0, zIndex: 100, minWidth: 160,
           background: 'var(--card-bg, #1e2435)', border: '1px solid var(--border, #2a3145)',
           borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.3)', padding: 4,
         }}>
@@ -58,16 +49,16 @@ function FilterDropdown({ label, options, value, onChange }) {
 }
 
 export default function ManagerTaskPage() {
-  const [tasks, setTasks]               = useState([])
-  const [selected, setSelected]         = useState(null)
-  const [filters, setFilters]           = useState({ module: '', type: '', priority: '', status: '' })
-  const [employees, setEmployees]       = useState([])
-  const [empSearch, setEmpSearch]       = useState('')
-  const [assignEmp, setAssignEmp]       = useState(null)
-  const [empDropOpen, setEmpDropOpen]   = useState(false)
-  const [assigning, setAssigning]       = useState(false)
-  const [assignMsg, setAssignMsg]       = useState('')
-  const [importing, setImporting]       = useState(false)
+  const [tasks, setTasks]             = useState([])
+  const [checkedIds, setCheckedIds]   = useState(new Set())
+  const [filters, setFilters]         = useState({ module: '', type: '', priority: '', status: '' })
+  const [employees, setEmployees]     = useState([])
+  const [empSearch, setEmpSearch]     = useState('')
+  const [assignEmp, setAssignEmp]     = useState(null)
+  const [empDropOpen, setEmpDropOpen] = useState(false)
+  const [assigning, setAssigning]     = useState(false)
+  const [assignMsg, setAssignMsg]     = useState('')
+  const [importing, setImporting]     = useState(false)
   const fileRef = useRef()
   const empRef  = useRef()
 
@@ -100,11 +91,11 @@ export default function ManagerTaskPage() {
           priority:    r['Priority']         || r['priority']    || '',
           ticketRef:   r['Ticket Ref']       || r['ticketRef']   || '',
           status:      r['Status']           || r['status']      || 'Pending',
-          assignedTo:  null,
         }))
         await api.importTasks(mapped)
         const fresh = await api.fetchAllTasks()
         setTasks(fresh)
+        setCheckedIds(new Set())
         setAssignMsg(`${mapped.length} tasks imported successfully`)
         setTimeout(() => setAssignMsg(''), 3000)
       } catch {
@@ -129,21 +120,45 @@ export default function ManagerTaskPage() {
 
   const uniq = (key) => [...new Set(tasks.map(t => t[key]).filter(Boolean))]
 
+  const allChecked = visible.length > 0 && visible.every(t => checkedIds.has(t.taskId))
+  const someChecked = visible.some(t => checkedIds.has(t.taskId))
+
+  const toggleAll = () => {
+    if (allChecked) {
+      const next = new Set(checkedIds)
+      visible.forEach(t => next.delete(t.taskId))
+      setCheckedIds(next)
+    } else {
+      const next = new Set(checkedIds)
+      visible.forEach(t => next.add(t.taskId))
+      setCheckedIds(next)
+    }
+  }
+
+  const toggleOne = (taskId) => {
+    const next = new Set(checkedIds)
+    next.has(taskId) ? next.delete(taskId) : next.add(taskId)
+    setCheckedIds(next)
+  }
+
   const filteredEmps = employees.filter(e =>
     e.name.toLowerCase().includes(empSearch.toLowerCase()) ||
     (e.username || '').toLowerCase().includes(empSearch.toLowerCase())
   )
 
+  const selectedTasks = tasks.filter(t => checkedIds.has(t.taskId))
+
   const handleAssign = async () => {
-    if (!selected || !assignEmp) return
+    if (checkedIds.size === 0 || !assignEmp) return
     setAssigning(true)
     try {
-      await api.assignTask(selected.taskId, assignEmp.id)
+      await api.assignTasksBulk([...checkedIds], assignEmp.id)
       const fresh = await api.fetchAllTasks()
       setTasks(fresh)
-      const updated = fresh.find(t => t.taskId === selected.taskId)
-      setSelected(updated || null)
-      setAssignMsg(`Task assigned to ${assignEmp.name}`)
+      setCheckedIds(new Set())
+      setAssignEmp(null)
+      setEmpSearch('')
+      setAssignMsg(`${selectedTasks.length} task${selectedTasks.length > 1 ? 's' : ''} assigned to ${assignEmp.name}`)
       setTimeout(() => setAssignMsg(''), 3000)
     } catch {
       setAssignMsg('Assignment failed')
@@ -153,6 +168,8 @@ export default function ManagerTaskPage() {
     }
   }
 
+  const showPanel = checkedIds.size > 0
+
   return (
     <div style={{ display: 'flex', gap: 16, height: '100%', minHeight: 0 }}>
 
@@ -161,7 +178,15 @@ export default function ManagerTaskPage() {
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Task Management</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Task Management</h2>
+            {checkedIds.size > 0 && (
+              <span style={{
+                padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                background: 'rgba(99,102,241,.18)', color: '#818cf8',
+              }}>{checkedIds.size} selected</span>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             {assignMsg && (
               <span style={{
@@ -169,6 +194,13 @@ export default function ManagerTaskPage() {
                 background: assignMsg.includes('fail') ? 'rgba(239,68,68,.15)' : 'rgba(34,197,94,.15)',
                 color:      assignMsg.includes('fail') ? '#ef4444' : '#22c55e',
               }}>{assignMsg}</span>
+            )}
+            {checkedIds.size > 0 && (
+              <button onClick={() => setCheckedIds(new Set())} style={{
+                padding: '7px 14px', background: 'rgba(255,255,255,.06)',
+                border: '1px solid var(--border, #2a3145)', borderRadius: 8,
+                cursor: 'pointer', fontSize: 13, color: 'inherit',
+              }}>Clear</button>
             )}
             <button
               onClick={() => fileRef.current.click()}
@@ -195,15 +227,23 @@ export default function ManagerTaskPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#1a2340', position: 'sticky', top: 0, zIndex: 10 }}>
+                {/* Select All checkbox */}
+                <th style={{ ...thStyle, width: 40 }}>
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    ref={el => { if (el) el.indeterminate = someChecked && !allChecked }}
+                    onChange={toggleAll}
+                    style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#6366f1' }}
+                  />
+                </th>
                 <th style={thStyle}>
                   <FilterDropdown label="Task ID" options={uniq('taskId')} value={filters.taskId || ''} onChange={v => setFilter('taskId', v)} />
                 </th>
                 <th style={thStyle}>
                   <FilterDropdown label="Module" options={uniq('module')} value={filters.module} onChange={v => setFilter('module', v)} />
                 </th>
-                <th style={{ ...thStyle, textAlign: 'left', minWidth: 280 }}>
-                  <FilterDropdown label="Task Description" options={[]} value="" onChange={() => {}} />
-                </th>
+                <th style={{ ...thStyle, textAlign: 'left', minWidth: 280 }}>Task Description</th>
                 <th style={thStyle}>
                   <FilterDropdown label="Type" options={uniq('type')} value={filters.type} onChange={v => setFilter('type', v)} />
                 </th>
@@ -221,41 +261,50 @@ export default function ManagerTaskPage() {
             <tbody>
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280', fontSize: 13 }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280', fontSize: 13 }}>
                     {tasks.length === 0 ? 'No tasks yet — import an Excel file to begin' : 'No tasks match filters'}
                   </td>
                 </tr>
               )}
               {visible.map((t, i) => {
-                const isSelected = selected?.taskId === t.taskId
+                const isChecked = checkedIds.has(t.taskId)
                 return (
                   <tr
                     key={t.taskId + i}
-                    onClick={() => { setSelected(t); setAssignEmp(null); setEmpSearch('') }}
                     style={{
-                      background: isSelected ? 'rgba(99,102,241,.12)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.02)',
-                      cursor: 'pointer',
-                      borderLeft: isSelected ? '3px solid #6366f1' : '3px solid transparent',
-                      transition: 'background .15s',
+                      background: isChecked ? 'rgba(99,102,241,.10)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.02)',
+                      borderLeft: isChecked ? '3px solid #6366f1' : '3px solid transparent',
+                      transition: 'background .12s',
                     }}
                   >
-                    <td style={tdStyle}><span style={{ fontWeight: 600, color: '#6366f1' }}>{t.taskId}</span></td>
-                    <td style={tdStyle}>{t.module}</td>
-                    <td style={{ ...tdStyle, textAlign: 'left', maxWidth: 320 }}>
+                    <td style={tdStyle} onClick={() => toggleOne(t.taskId)}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleOne(t.taskId)}
+                        onClick={e => e.stopPropagation()}
+                        style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#6366f1' }}
+                      />
+                    </td>
+                    <td style={tdStyle} onClick={() => toggleOne(t.taskId)} style={{ ...tdStyle, cursor: 'pointer' }}>
+                      <span style={{ fontWeight: 600, color: '#6366f1' }}>{t.taskId}</span>
+                    </td>
+                    <td style={{ ...tdStyle, cursor: 'pointer' }} onClick={() => toggleOne(t.taskId)}>{t.module}</td>
+                    <td style={{ ...tdStyle, textAlign: 'left', maxWidth: 320, cursor: 'pointer' }} onClick={() => toggleOne(t.taskId)}>
                       <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         {t.description}
                       </span>
                     </td>
-                    <td style={tdStyle}>{t.type}</td>
-                    <td style={tdStyle}>
+                    <td style={{ ...tdStyle, cursor: 'pointer' }} onClick={() => toggleOne(t.taskId)}>{t.type}</td>
+                    <td style={{ ...tdStyle, cursor: 'pointer' }} onClick={() => toggleOne(t.taskId)}>
                       <span style={{
                         padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600,
                         background: `${PRIORITY_COLOR[t.priority] || '#6b7280'}22`,
                         color: PRIORITY_COLOR[t.priority] || '#6b7280',
                       }}>{t.priority}</span>
                     </td>
-                    <td style={tdStyle}>{t.ticketRef || '—'}</td>
-                    <td style={tdStyle}>
+                    <td style={{ ...tdStyle, cursor: 'pointer' }} onClick={() => toggleOne(t.taskId)}>{t.ticketRef || '—'}</td>
+                    <td style={{ ...tdStyle, cursor: 'pointer' }} onClick={() => toggleOne(t.taskId)}>
                       <span style={{
                         padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600,
                         background: `${STATUS_COLOR[t.status] || '#6b7280'}22`,
@@ -271,17 +320,17 @@ export default function ManagerTaskPage() {
         <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280' }}>{visible.length} task{visible.length !== 1 ? 's' : ''}</div>
       </div>
 
-      {/* ── Right: Detail + Assign Panel ── */}
-      {selected && (
+      {/* ── Right: Assign Panel (shown when tasks selected) ── */}
+      {showPanel && (
         <div style={{
           width: 320, flexShrink: 0, background: 'var(--card-bg, #1e2435)',
           borderRadius: 12, border: '1px solid var(--border, #2a3145)',
           padding: 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto',
         }}>
-          {/* Close */}
+          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>Task Details</span>
-            <button onClick={() => setSelected(null)} style={{
+            <span style={{ fontWeight: 700, fontSize: 15 }}>Assign Tasks</span>
+            <button onClick={() => setCheckedIds(new Set())} style={{
               background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4,
             }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -290,50 +339,47 @@ export default function ManagerTaskPage() {
             </button>
           </div>
 
-          {/* Fields */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              ['Task ID',    selected.taskId,      '#6366f1'],
-              ['Module',     selected.module,      null],
-              ['Type',       selected.type,        null],
-              ['Priority',   selected.priority,    PRIORITY_COLOR[selected.priority]],
-              ['Ticket Ref', selected.ticketRef || '—', null],
-              ['Status',     selected.status,      STATUS_COLOR[selected.status]],
-            ].map(([lbl, val, col]) => (
-              <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                <span style={{ color: '#9ca3af' }}>{lbl}</span>
-                <span style={{ fontWeight: 600, color: col || 'inherit' }}>{val}</span>
+          {/* Selected count */}
+          <div style={{
+            padding: '10px 12px', borderRadius: 8,
+            background: 'rgba(99,102,241,.12)', color: '#818cf8', fontSize: 13,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="9 11 12 14 22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <strong>{checkedIds.size}</strong> task{checkedIds.size > 1 ? 's' : ''} selected
+          </div>
+
+          {/* Selected task list */}
+          <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {selectedTasks.map(t => (
+              <div key={t.taskId} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '7px 10px', borderRadius: 7,
+                background: 'rgba(255,255,255,.04)', fontSize: 12,
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                  <span style={{ fontWeight: 600, color: '#6366f1' }}>{t.taskId}</span>
+                  <span style={{ color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
+                    {t.module} · {t.type}
+                  </span>
+                </div>
+                <button onClick={() => toggleOne(t.taskId)} style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 2, flexShrink: 0,
+                }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
               </div>
             ))}
           </div>
 
-          {/* Description */}
-          <div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>Description</div>
-            <div style={{
-              fontSize: 13, lineHeight: 1.6, padding: '10px 12px',
-              background: 'rgba(255,255,255,.04)', borderRadius: 8,
-            }}>{selected.description || '—'}</div>
-          </div>
-
-          {/* Already assigned? */}
-          {selected.assignedToName && (
-            <div style={{
-              padding: '8px 12px', borderRadius: 8, fontSize: 13,
-              background: 'rgba(99,102,241,.12)', color: '#818cf8',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-              Assigned to <strong>{selected.assignedToName}</strong>
-            </div>
-          )}
-
           <div style={{ height: 1, background: 'var(--border, #2a3145)' }} />
 
-          {/* Assign To */}
+          {/* Employee Search */}
           <div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>Assign To Employee</div>
             <div ref={empRef} style={{ position: 'relative' }}>
@@ -341,7 +387,7 @@ export default function ManagerTaskPage() {
                 type="text"
                 placeholder="Search employee..."
                 value={empSearch}
-                onChange={e => { setEmpSearch(e.target.value); setEmpDropOpen(true) }}
+                onChange={e => { setEmpSearch(e.target.value); setAssignEmp(null); setEmpDropOpen(true) }}
                 onFocus={() => setEmpDropOpen(true)}
                 style={{
                   width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13,
@@ -372,6 +418,21 @@ export default function ManagerTaskPage() {
                 </div>
               )}
             </div>
+
+            {/* Selected employee chip */}
+            {assignEmp && (
+              <div style={{
+                marginTop: 8, display: 'flex', alignItems: 'center', gap: 8,
+                padding: '7px 12px', borderRadius: 8, background: 'rgba(34,197,94,.1)',
+                border: '1px solid rgba(34,197,94,.25)', fontSize: 13,
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span style={{ fontWeight: 600, color: '#22c55e' }}>{assignEmp.name}</span>
+              </div>
+            )}
           </div>
 
           {/* Assign Button */}
@@ -380,7 +441,8 @@ export default function ManagerTaskPage() {
             disabled={!assignEmp || assigning}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '11px 0', borderRadius: 9, border: 'none', cursor: assignEmp ? 'pointer' : 'not-allowed',
+              padding: '12px 0', borderRadius: 9, border: 'none',
+              cursor: assignEmp && !assigning ? 'pointer' : 'not-allowed',
               background: assignEmp ? '#16a34a' : 'rgba(255,255,255,.06)',
               color: assignEmp ? '#fff' : '#6b7280',
               fontWeight: 700, fontSize: 14, transition: 'background .2s',
@@ -390,7 +452,9 @@ export default function ManagerTaskPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
-            {assigning ? 'Assigning…' : 'Assign Task'}
+            {assigning
+              ? 'Assigning…'
+              : `Assign ${checkedIds.size} Task${checkedIds.size > 1 ? 's' : ''}`}
           </button>
         </div>
       )}

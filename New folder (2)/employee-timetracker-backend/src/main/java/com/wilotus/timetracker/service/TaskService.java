@@ -52,6 +52,17 @@ public class TaskService {
         return toDto(task);
     }
 
+    public void assignBulk(List<String> taskIds, String employeeId) {
+        Employee emp = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new RuntimeException("Employee not found: " + employeeId));
+        List<Task> tasks = taskRepository.findAllById(taskIds);
+        tasks.forEach(t -> {
+            t.setAssignedTo(emp.getId());
+            t.setAssignedToName(emp.getName());
+        });
+        taskRepository.saveAll(tasks);
+    }
+
     private TaskDto toDto(Task t) {
         TaskDto d = new TaskDto();
         d.setTaskId(t.getTaskId());
