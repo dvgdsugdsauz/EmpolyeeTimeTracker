@@ -20,6 +20,8 @@ import Settings from './pages/admin/Settings'
 import TimesheetPage from './pages/employee/TimesheetPage'
 import ManagerTimesheetPage from './pages/manager/ManagerTimesheetPage'
 import TimesheetImport from './pages/admin/TimesheetImport'
+import ManagerTaskPage from './pages/manager/ManagerTaskPage'
+import MyTasksPage from './pages/employee/MyTasksPage'
 
 // Set VITE_API_URL in .env.local to enable real backend
 const USE_API = Boolean(import.meta.env.VITE_API_URL)
@@ -457,6 +459,7 @@ export default function App() {
     if (user.role === 'employee') {
       if (currentPage === 'attendance') return <MyAttendance user={user} />
       if (currentPage === 'timesheet') return <TimesheetPage user={user} />
+      if (currentPage === 'my-tasks') return <MyTasksPage user={user} />
       return <EmployeeDashboard user={user} attendance={myAttendance} />
     }
 
@@ -507,6 +510,8 @@ export default function App() {
           return <ManagerTimesheetPage user={user} />
         case 'my-timesheet':
           return <TimesheetPage user={user} />
+        case 'tasks':
+          return <ManagerTaskPage user={user} />
         case 'import':
           return <TimesheetImport />
         case 'settings':

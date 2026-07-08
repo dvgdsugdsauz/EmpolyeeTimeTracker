@@ -307,6 +307,26 @@ export function deleteTimesheetModule(id) {
   return request(`/api/timesheets/modules/${id}`, { method: 'DELETE' })
 }
 
+// ── Tasks ──────────────────────────────────────────────────────────────────
+
+export function fetchAllTasks() {
+  return request('/api/tasks')
+}
+
+export function fetchMyTasks() {
+  return request('/api/tasks/my')
+}
+
+export function importTasks(tasks) {
+  return request('/api/tasks/import', { method: 'POST', body: JSON.stringify(tasks) })
+}
+
+export function assignTask(taskId, employeeId) {
+  return request(`/api/tasks/${encodeURIComponent(taskId)}/assign`, {
+    method: 'POST', body: JSON.stringify({ employeeId }),
+  })
+}
+
 export function fetchTimesheetManagers() {
   return request('/api/timesheets/managers')
 }
