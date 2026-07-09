@@ -13,6 +13,21 @@ const STATUS_COLOR = {
   Pending:      { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' },
 }
 
+function calcWorkedHours(t) {
+  if (!t.actualStartDateTime) return '—'
+  const status = t.status || 'Pending'
+  const start = new Date(t.actualStartDateTime.replace(' ', 'T'))
+  const end = (status !== 'In Progress' && t.actualEndDateTime)
+    ? new Date(t.actualEndDateTime.replace(' ', 'T'))
+    : (status === 'In Progress' ? new Date() : null)
+  if (!end) return '—'
+  const mins = Math.round((end - start) / 60000)
+  if (mins <= 0) return '< 1m'
+  if (mins < 60) return `${mins}m`
+  const h = Math.floor(mins / 60), m = mins % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
 const localNow = () => {
   const d = new Date()
   const pad = n => String(n).padStart(2, '0')
@@ -168,7 +183,7 @@ function TaskModal({ task, onClose, onSaved }) {
           {/* Paused → Resume */}
           {status === 'Paused' && (
             <button
-              onClick={() => callApi({ status: 'In Progress' })}
+              onClick={() => callApi({ status: 'In Progress', actualEndDateTime: '' })}
               disabled={saving}
               style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -188,7 +203,7 @@ function TaskModal({ task, onClose, onSaved }) {
           {status === 'In Progress' && (
             <>
               <button
-                onClick={() => callApi({ status: 'Paused' })}
+                onClick={() => callApi({ status: 'Paused', actualEndDateTime: localNow() })}
                 disabled={saving}
                 style={{
                   flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -290,8 +305,8 @@ export default function MyTasksPage() {
             <tr style={{ background: '#1e293b', position: 'sticky', top: 0, zIndex: 10 }}>
               {[
                 'Task ID', 'Task Description', 'Assigned By',
-                'Target Date', 'Priority',
-                'Actual Start', 'Actual End', 'Status', 'Remarks',
+                'Planned Date', 'Target Date', 'Priority',
+                'Actual Start', 'Actual End', 'Status', 'Hours', 'Remarks',
               ].map(h => (
                 <th key={h} style={thStyle}>{h}</th>
               ))}
@@ -300,7 +315,7 @@ export default function MyTasksPage() {
           <tbody>
             {tasks.length === 0 && (
               <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
+                <td colSpan={11} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
                   No tasks assigned to you yet
                 </td>
               </tr>
@@ -333,6 +348,9 @@ export default function MyTasksPage() {
                     <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedByName || t.assignedBy || '—'}</span>
                   </td>
                   <td style={tdStyle}>
+                    <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.plannedDate || '—'}</span>
+                  </td>
+                  <td style={tdStyle}>
                     <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span>
                   </td>
                   <td style={tdStyle}>
@@ -362,6 +380,9 @@ export default function MyTasksPage() {
                         whiteSpace: 'nowrap', display: 'inline-block',
                       }}
                     >{status}</span>
+                  </td>
+                  <td style={tdStyle}>
+                    <span style={{ color: '#374151', whiteSpace: 'nowrap', fontWeight: 500 }}>{calcWorkedHours(t)}</span>
                   </td>
                   <td style={{ ...tdStyle, maxWidth: 180, textAlign: 'left' }}>
                     <span style={{

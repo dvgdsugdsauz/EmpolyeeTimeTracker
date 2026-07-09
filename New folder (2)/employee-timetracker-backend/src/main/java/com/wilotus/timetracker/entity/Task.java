@@ -59,4 +59,7 @@ public class Task {
 
     @Column(name = "assigned_by_name")
     private String assignedByName;
+
+    @Column(name = "planned_date")
+    private String plannedDate;
 }

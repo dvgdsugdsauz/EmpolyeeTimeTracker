@@ -55,7 +55,7 @@ public class TaskService {
         return toDto(task);
     }
 
-    public void assignBulk(List<String> taskIds, String employeeId, String targetDate, String managerUsername) {
+    public void assignBulk(List<String> taskIds, String employeeId, String targetDate, String plannedDate, String managerUsername) {
         Employee emp = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new RuntimeException("Employee not found: " + employeeId));
         String managerName = employeeRepository.findByUsername(managerUsername)
@@ -66,7 +66,8 @@ public class TaskService {
             t.setAssignedToName(emp.getName());
             t.setAssignedBy(managerUsername);
             t.setAssignedByName(managerName);
-            if (targetDate != null && !targetDate.isBlank()) t.setTargetDate(targetDate);
+            if (targetDate  != null && !targetDate.isBlank())  t.setTargetDate(targetDate);
+            if (plannedDate != null && !plannedDate.isBlank()) t.setPlannedDate(plannedDate);
             // reset progress fields so employee starts fresh
             t.setStatus(null);
             t.setActualStartDateTime(null);
@@ -109,6 +110,7 @@ public class TaskService {
         d.setAssignedToName(t.getAssignedToName());
         d.setAssignedBy(t.getAssignedBy());
         d.setAssignedByName(t.getAssignedByName());
+        d.setPlannedDate(t.getPlannedDate());
         return d;
     }
 }

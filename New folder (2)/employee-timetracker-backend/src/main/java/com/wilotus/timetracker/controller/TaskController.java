@@ -48,7 +48,8 @@ public class TaskController {
         List<String> taskIds = (List<String>) body.get("taskIds");
         String employeeId  = (String) body.get("employeeId");
         String targetDate  = (String) body.get("targetDate");
-        taskService.assignBulk(taskIds, employeeId, targetDate, auth.getName());
+        String plannedDate = (String) body.get("plannedDate");
+        taskService.assignBulk(taskIds, employeeId, targetDate, plannedDate, auth.getName());
         return ResponseEntity.ok(Map.of("assigned", taskIds.size()));
     }
 

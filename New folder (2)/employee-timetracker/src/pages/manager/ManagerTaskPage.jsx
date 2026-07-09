@@ -62,7 +62,8 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
   const [empSearch, setEmpSearch]   = useState('')
   const [assignEmp, setAssignEmp]   = useState(null)
   const [empDropOpen, setEmpDropOpen] = useState(false)
-  const [targetDate, setTargetDate] = useState('')
+  const [targetDate, setTargetDate]   = useState('')
+  const [plannedDate, setPlannedDate] = useState('')
   const [assigning, setAssigning]   = useState(false)
   const [msg, setMsg]               = useState('')
   const empRef = useRef()
@@ -83,7 +84,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
     if (!assignEmp) return
     setAssigning(true)
     try {
-      await api.assignTasksBulk([...checkedIds], assignEmp.id, targetDate)
+      await api.assignTasksBulk([...checkedIds], assignEmp.id, targetDate, plannedDate)
       onAssigned(assignEmp.name, selectedTasks.length)
     } catch {
       setMsg('Assignment failed')
@@ -238,23 +239,38 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
             )}
           </div>
 
-          {/* Target Date */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>
-              Target Date
-              <span style={{ fontWeight: 400, color: '#94a3b8', marginLeft: 6 }}>(optional — overrides existing)</span>
+          {/* Planned Date + Target Date side by side */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>
+                Planned Date <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span>
+              </div>
+              <input
+                type="date"
+                value={plannedDate}
+                onChange={e => setPlannedDate(e.target.value)}
+                style={{
+                  width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 13,
+                  background: '#f8fafc', border: `1px solid ${plannedDate ? '#6366f1' : '#e2e8f0'}`,
+                  color: plannedDate ? '#1e293b' : '#94a3b8', outline: 'none', boxSizing: 'border-box',
+                }}
+              />
             </div>
-            <input
-              type="date"
-              value={targetDate}
-              onChange={e => setTargetDate(e.target.value)}
-              style={{
-                width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 13,
-                background: '#f8fafc', border: `1px solid ${targetDate ? '#6366f1' : '#e2e8f0'}`,
-                color: targetDate ? '#1e293b' : '#94a3b8', outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>
+                Target Date <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span>
+              </div>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={e => setTargetDate(e.target.value)}
+                style={{
+                  width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 13,
+                  background: '#f8fafc', border: `1px solid ${targetDate ? '#6366f1' : '#e2e8f0'}`,
+                  color: targetDate ? '#1e293b' : '#94a3b8', outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -296,6 +312,21 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
       </div>
     </div>
   )
+}
+
+function calcWorkedHours(t) {
+  if (!t.actualStartDateTime) return '—'
+  const status = t.status || 'Pending'
+  const start = new Date(t.actualStartDateTime.replace(' ', 'T'))
+  const end = (status !== 'In Progress' && t.actualEndDateTime)
+    ? new Date(t.actualEndDateTime.replace(' ', 'T'))
+    : (status === 'In Progress' ? new Date() : null)
+  if (!end) return '—'
+  const mins = Math.round((end - start) / 60000)
+  if (mins <= 0) return '< 1m'
+  if (mins < 60) return `${mins}m`
+  const h = Math.floor(mins / 60), m = mins % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
 
 export default function ManagerTaskPage() {
@@ -548,7 +579,7 @@ export default function ManagerTaskPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#1e293b', position: 'sticky', top: 0, zIndex: 10 }}>
-                {['Task ID', 'Task Description', 'Assigned To', 'Target Date', 'Priority', 'Actual Start', 'Actual End', 'Status', 'Remarks'].map(h => (
+                {['Task ID', 'Task Description', 'Assigned To', 'Planned Date', 'Target Date', 'Priority', 'Actual Start', 'Actual End', 'Status', 'Hours', 'Remarks'].map(h => (
                   <th key={h} style={assignedThStyle}>{h}</th>
                 ))}
               </tr>
@@ -556,7 +587,7 @@ export default function ManagerTaskPage() {
             <tbody>
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
+                  <td colSpan={11} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
                     No assigned tasks yet
                   </td>
                 </tr>
@@ -576,6 +607,7 @@ export default function ManagerTaskPage() {
                       <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151' }}>{t.description}</span>
                     </td>
                     <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedToName || t.assignedTo || '—'}</span></td>
+                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.plannedDate || '—'}</span></td>
                     <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span></td>
                     <td style={tdStyle}>
                       {t.priority ? (
@@ -589,6 +621,11 @@ export default function ManagerTaskPage() {
                         className={status === 'In Progress' ? 'task-in-progress' : ''}
                         style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, whiteSpace: 'nowrap', display: 'inline-block' }}
                       >{status}</span>
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{ color: '#374151', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 12 }}>
+                        {calcWorkedHours(t)}
+                      </span>
                     </td>
                     <td style={{ ...tdStyle, maxWidth: 200, textAlign: 'left' }}>
                       <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: t.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{t.remarks || '—'}</span>

@@ -21,4 +21,5 @@ public class TaskDto {
     private String assignedToName;
     private String assignedBy;
     private String assignedByName;
+    private String plannedDate;
 }
