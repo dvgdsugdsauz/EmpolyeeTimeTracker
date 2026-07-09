@@ -290,8 +290,8 @@ export default function MyTasksPage() {
           <thead>
             <tr style={{ background: '#1e293b', position: 'sticky', top: 0, zIndex: 10 }}>
               {[
-                'Task ID', 'Task Description', 'Assigned To', 'Role',
-                'QA Assigned', 'Target Date', 'Priority',
+                'Task ID', 'Task Description', 'Assigned To',
+                'Target Date', 'Priority',
                 'Actual Start', 'Actual End', 'Status', 'Remarks',
               ].map(h => (
                 <th key={h} style={thStyle}>{h}</th>
@@ -301,7 +301,7 @@ export default function MyTasksPage() {
           <tbody>
             {tasks.length === 0 && (
               <tr>
-                <td colSpan={11} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
                   No tasks assigned to you yet
                 </td>
               </tr>
@@ -333,8 +333,6 @@ export default function MyTasksPage() {
                   <td style={tdStyle}>
                     <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedToName || t.assignedTo || '—'}</span>
                   </td>
-                  <td style={tdStyle}><span style={{ color: '#374151' }}>{t.role || '—'}</span></td>
-                  <td style={tdStyle}><span style={{ color: '#374151' }}>{t.qaAssigned || '—'}</span></td>
                   <td style={tdStyle}>
                     <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span>
                   </td>
