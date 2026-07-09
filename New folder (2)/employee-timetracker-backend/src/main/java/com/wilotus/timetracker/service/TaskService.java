@@ -67,6 +67,11 @@ public class TaskService {
             t.setAssignedBy(managerUsername);
             t.setAssignedByName(managerName);
             if (targetDate != null && !targetDate.isBlank()) t.setTargetDate(targetDate);
+            // reset progress fields so employee starts fresh
+            t.setStatus(null);
+            t.setActualStartDateTime(null);
+            t.setActualEndDateTime(null);
+            t.setRemarks(null);
         });
         taskRepository.saveAll(tasks);
     }
