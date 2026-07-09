@@ -41,12 +41,14 @@ public class TaskController {
     }
 
     @PostMapping("/assign-bulk")
-    public ResponseEntity<Map<String, Object>> assignBulk(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> assignBulk(
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
         @SuppressWarnings("unchecked")
         List<String> taskIds = (List<String>) body.get("taskIds");
         String employeeId  = (String) body.get("employeeId");
         String targetDate  = (String) body.get("targetDate");
-        taskService.assignBulk(taskIds, employeeId, targetDate);
+        taskService.assignBulk(taskIds, employeeId, targetDate, auth.getName());
         return ResponseEntity.ok(Map.of("assigned", taskIds.size()));
     }
 

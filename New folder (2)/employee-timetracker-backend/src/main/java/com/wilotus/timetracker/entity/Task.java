@@ -53,4 +53,10 @@ public class Task {
 
     @Column(name = "assigned_to_name")
     private String assignedToName;
+
+    @Column(name = "assigned_by")
+    private String assignedBy;
+
+    @Column(name = "assigned_by_name")
+    private String assignedByName;
 }

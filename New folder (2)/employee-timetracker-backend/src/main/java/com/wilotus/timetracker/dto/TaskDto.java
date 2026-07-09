@@ -19,4 +19,6 @@ public class TaskDto {
     private String remarks;
     private String assignedTo;
     private String assignedToName;
+    private String assignedBy;
+    private String assignedByName;
 }

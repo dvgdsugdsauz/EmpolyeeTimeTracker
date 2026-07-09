@@ -8,9 +8,10 @@ const PRIORITY_COLOR = {
   Low:    { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
 }
 const STATUS_COLOR = {
-  Completed:    { bg: '#f0fdf4', color: '#16a34a' },
-  'In Progress':{ bg: '#eff6ff', color: '#2563eb' },
-  Pending:      { bg: '#fafafa', color: '#6b7280' },
+  Completed:    { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+  'In Progress':{ bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
+  Paused:       { bg: '#fefce8', color: '#ca8a04', border: '#fde68a' },
+  Pending:      { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' },
 }
 
 function FilterDropdown({ label, options, value, onChange }) {
@@ -461,100 +462,140 @@ export default function ManagerTaskPage() {
 
       {/* Table */}
       <div style={{ flex: 1, overflow: 'auto', borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 10 }}>
-              <th style={thStyle}>
-                <input
-                  type="checkbox"
-                  checked={allChecked}
-                  ref={el => { if (el) el.indeterminate = someChecked && !allChecked }}
-                  onChange={toggleAll}
-                  style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#6366f1' }}
-                />
-              </th>
-              <th style={thStyle}>
-                <FilterDropdown label="Task ID" options={uniq('taskId')} value={filters.taskId || ''} onChange={v => setFilter('taskId', v)} />
-              </th>
-              <th style={thStyle}>
-                <FilterDropdown label="Module" options={uniq('module')} value={filters.module} onChange={v => setFilter('module', v)} />
-              </th>
-              <th style={{ ...thStyle, textAlign: 'left', minWidth: 300 }}>Task Description</th>
-              <th style={thStyle}>
-                <FilterDropdown label="Type" options={uniq('type')} value={filters.type} onChange={v => setFilter('type', v)} />
-              </th>
-              <th style={thStyle}>
-                <FilterDropdown label="Priority" options={uniq('priority')} value={filters.priority} onChange={v => setFilter('priority', v)} />
-              </th>
-              <th style={thStyle}>
-                <FilterDropdown label="Ticket Ref" options={uniq('ticketRef')} value={filters.ticketRef || ''} onChange={v => setFilter('ticketRef', v)} />
-              </th>
-              <th style={thStyle}>
-                <FilterDropdown label="Status" options={uniq('status')} value={filters.status} onChange={v => setFilter('status', v)} />
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.length === 0 && (
-              <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
-                  {tasks.length === 0 ? 'No tasks yet — click Import Excel to get started' : 'No tasks match filters'}
-                </td>
+        {activeTab === 'unassigned' ? (
+          /* ── Unassigned table: checkboxes + import columns ── */
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 10 }}>
+                <th style={thStyle}>
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    ref={el => { if (el) el.indeterminate = someChecked && !allChecked }}
+                    onChange={toggleAll}
+                    style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#6366f1' }}
+                  />
+                </th>
+                <th style={thStyle}>
+                  <FilterDropdown label="Task ID" options={uniq('taskId')} value={filters.taskId || ''} onChange={v => setFilter('taskId', v)} />
+                </th>
+                <th style={thStyle}>
+                  <FilterDropdown label="Module" options={uniq('module')} value={filters.module} onChange={v => setFilter('module', v)} />
+                </th>
+                <th style={{ ...thStyle, textAlign: 'left', minWidth: 300 }}>Task Description</th>
+                <th style={thStyle}>
+                  <FilterDropdown label="Type" options={uniq('type')} value={filters.type} onChange={v => setFilter('type', v)} />
+                </th>
+                <th style={thStyle}>
+                  <FilterDropdown label="Priority" options={uniq('priority')} value={filters.priority} onChange={v => setFilter('priority', v)} />
+                </th>
+                <th style={thStyle}>
+                  <FilterDropdown label="Ticket Ref" options={uniq('ticketRef')} value={filters.ticketRef || ''} onChange={v => setFilter('ticketRef', v)} />
+                </th>
+                <th style={thStyle}>
+                  <FilterDropdown label="Status" options={uniq('status')} value={filters.status} onChange={v => setFilter('status', v)} />
+                </th>
               </tr>
-            )}
-            {visible.map((t, i) => {
-              const isChecked = checkedIds.has(t.taskId)
-              const pc = PRIORITY_COLOR[t.priority] || { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' }
-              const sc = STATUS_COLOR[t.status]     || { bg: '#f8fafc', color: '#64748b' }
-              return (
-                <tr
-                  key={t.taskId + i}
-                  onClick={() => toggleOne(t.taskId)}
-                  style={{
-                    background: isChecked ? '#eef2ff' : i % 2 === 0 ? '#fff' : '#fafafa',
-                    borderLeft: isChecked ? '3px solid #6366f1' : '3px solid transparent',
-                    cursor: 'pointer', transition: 'background .1s',
-                  }}
-                  onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = '#f1f5f9' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = isChecked ? '#eef2ff' : i % 2 === 0 ? '#fff' : '#fafafa' }}
-                >
-                  <td style={tdStyle} onClick={e => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleOne(t.taskId)}
-                      style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#6366f1' }}
-                    />
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ fontWeight: 700, color: '#6366f1' }}>{t.taskId}</span>
-                  </td>
-                  <td style={tdStyle}><span style={{ color: '#374151' }}>{t.module}</span></td>
-                  <td style={{ ...tdStyle, textAlign: 'left', maxWidth: 340 }}>
-                    <span style={{
-                      display: '-webkit-box', WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151',
-                    }}>{t.description}</span>
-                  </td>
-                  <td style={tdStyle}><span style={{ color: '#374151' }}>{t.type}</span></td>
-                  <td style={tdStyle}>
-                    <span style={{
-                      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                      background: pc.bg, color: pc.color, border: `1px solid ${pc.border}`,
-                    }}>{t.priority}</span>
-                  </td>
-                  <td style={tdStyle}><span style={{ color: '#94a3b8' }}>{t.ticketRef || '—'}</span></td>
-                  <td style={tdStyle}>
-                    <span style={{
-                      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                      background: sc.bg, color: sc.color,
-                    }}>{t.status}</span>
+            </thead>
+            <tbody>
+              {visible.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
+                    {tasks.length === 0 ? 'No tasks yet — click Import Excel to get started' : 'No tasks match filters'}
                   </td>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
+              )}
+              {visible.map((t, i) => {
+                const isChecked = checkedIds.has(t.taskId)
+                const pc = PRIORITY_COLOR[t.priority] || { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' }
+                const sc = STATUS_COLOR[t.status]     || STATUS_COLOR.Pending
+                return (
+                  <tr
+                    key={t.taskId + i}
+                    onClick={() => toggleOne(t.taskId)}
+                    style={{
+                      background: isChecked ? '#eef2ff' : i % 2 === 0 ? '#fff' : '#fafafa',
+                      borderLeft: isChecked ? '3px solid #6366f1' : '3px solid transparent',
+                      cursor: 'pointer', transition: 'background .1s',
+                    }}
+                    onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = '#f1f5f9' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = isChecked ? '#eef2ff' : i % 2 === 0 ? '#fff' : '#fafafa' }}
+                  >
+                    <td style={tdStyle} onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={isChecked} onChange={() => toggleOne(t.taskId)}
+                        style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#6366f1' }} />
+                    </td>
+                    <td style={tdStyle}><span style={{ fontWeight: 700, color: '#6366f1' }}>{t.taskId}</span></td>
+                    <td style={tdStyle}><span style={{ color: '#374151' }}>{t.module}</span></td>
+                    <td style={{ ...tdStyle, textAlign: 'left', maxWidth: 340 }}>
+                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151' }}>{t.description}</span>
+                    </td>
+                    <td style={tdStyle}><span style={{ color: '#374151' }}>{t.type}</span></td>
+                    <td style={tdStyle}>
+                      <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: pc.bg, color: pc.color, border: `1px solid ${pc.border}` }}>{t.priority}</span>
+                    </td>
+                    <td style={tdStyle}><span style={{ color: '#94a3b8' }}>{t.ticketRef || '—'}</span></td>
+                    <td style={tdStyle}>
+                      <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>{t.status}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          /* ── Assigned table: employee-style view with status colors ── */
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: '#1e293b', position: 'sticky', top: 0, zIndex: 10 }}>
+                {['Task ID', 'Task Description', 'Assigned To', 'Target Date', 'Priority', 'Actual Start', 'Actual End', 'Status', 'Remarks'].map(h => (
+                  <th key={h} style={assignedThStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visible.length === 0 && (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
+                    No assigned tasks yet
+                  </td>
+                </tr>
+              )}
+              {visible.map((t, i) => {
+                const pc     = PRIORITY_COLOR[t.priority] || {}
+                const status = t.status || 'Pending'
+                const sc     = STATUS_COLOR[status] || STATUS_COLOR.Pending
+                return (
+                  <tr key={t.taskId + i}
+                    style={{ background: i % 2 === 0 ? '#fff' : '#fafafa', transition: 'background .1s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafafa' }}
+                  >
+                    <td style={tdStyle}><span style={{ fontWeight: 700, color: '#6366f1', whiteSpace: 'nowrap' }}>{t.taskId}</span></td>
+                    <td style={{ ...tdStyle, textAlign: 'left', minWidth: 200, maxWidth: 300 }}>
+                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151' }}>{t.description}</span>
+                    </td>
+                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedToName || t.assignedTo || '—'}</span></td>
+                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span></td>
+                    <td style={tdStyle}>
+                      {t.priority ? (
+                        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: pc.bg, color: pc.color, border: `1px solid ${pc.border}` }}>{t.priority}</span>
+                      ) : <span style={{ color: '#94a3b8' }}>—</span>}
+                    </td>
+                    <td style={tdStyle}><span style={{ color: t.actualStartDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>{t.actualStartDateTime ? t.actualStartDateTime.replace('T', ' ') : '—'}</span></td>
+                    <td style={tdStyle}><span style={{ color: t.actualEndDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>{t.actualEndDateTime ? t.actualEndDateTime.replace('T', ' ') : '—'}</span></td>
+                    <td style={tdStyle}>
+                      <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, whiteSpace: 'nowrap' }}>{status}</span>
+                    </td>
+                    <td style={{ ...tdStyle, maxWidth: 200, textAlign: 'left' }}>
+                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: t.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{t.remarks || '—'}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
       <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>{visible.length} task{visible.length !== 1 ? 's' : ''}</div>
 
@@ -611,6 +652,11 @@ export default function ManagerTaskPage() {
 const thStyle = {
   padding: '11px 14px', textAlign: 'center', fontWeight: 600,
   fontSize: 12, color: '#475569', whiteSpace: 'nowrap',
+}
+const assignedThStyle = {
+  padding: '11px 14px', textAlign: 'center', fontWeight: 600,
+  fontSize: 12, color: '#e2e8f0', whiteSpace: 'nowrap',
+  borderBottom: '2px solid #334155',
 }
 const tdStyle = {
   padding: '11px 14px', textAlign: 'center',

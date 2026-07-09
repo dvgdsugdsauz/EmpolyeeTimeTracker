@@ -290,7 +290,7 @@ export default function MyTasksPage() {
           <thead>
             <tr style={{ background: '#1e293b', position: 'sticky', top: 0, zIndex: 10 }}>
               {[
-                'Task ID', 'Task Description', 'Assigned To',
+                'Task ID', 'Task Description', 'Assigned By',
                 'Target Date', 'Priority',
                 'Actual Start', 'Actual End', 'Status', 'Remarks',
               ].map(h => (
@@ -331,7 +331,7 @@ export default function MyTasksPage() {
                     }}>{t.description}</span>
                   </td>
                   <td style={tdStyle}>
-                    <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedToName || t.assignedTo || '—'}</span>
+                    <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedByName || t.assignedBy || '—'}</span>
                   </td>
                   <td style={tdStyle}>
                     <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span>
