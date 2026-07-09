@@ -281,7 +281,6 @@ export default function MyTasksPage() {
           padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
           background: '#eef2ff', color: '#6366f1', border: '1px solid #c7d2fe',
         }}>{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>
-        <span style={{ fontSize: 13, color: '#94a3b8' }}>Click a row to update</span>
       </div>
 
       {/* Table */}
