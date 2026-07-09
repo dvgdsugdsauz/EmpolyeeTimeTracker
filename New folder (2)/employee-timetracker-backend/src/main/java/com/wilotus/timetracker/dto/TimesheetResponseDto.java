@@ -16,6 +16,7 @@ public class TimesheetResponseDto {
     private String modules;
     private String description;
     private String status;
+    private String taskIds;
     private String rejectReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -35,6 +35,7 @@ public class TimesheetService {
                 .workingDate(dto.getWorkingDate())
                 .workingHours(dto.getWorkingHours())
                 .modules(dto.getModules())
+                .taskIds(dto.getTaskIds())
                 .description(dto.getDescription())
                 .status(status)
                 .build();
@@ -57,6 +58,7 @@ public class TimesheetService {
         ts.setWorkingDate(dto.getWorkingDate());
         ts.setWorkingHours(dto.getWorkingHours());
         ts.setModules(dto.getModules());
+        ts.setTaskIds(dto.getTaskIds());
         ts.setManagerId(dto.getManagerId());
         ts.setDescription(dto.getDescription());
         ts.setStatus(newStatus);
@@ -144,6 +146,7 @@ public class TimesheetService {
         dto.setWorkingDate(ts.getWorkingDate());
         dto.setWorkingHours(ts.getWorkingHours());
         dto.setModules(ts.getModules());
+        dto.setTaskIds(ts.getTaskIds());
         dto.setDescription(ts.getDescription());
         dto.setStatus(ts.getStatus());
         dto.setRejectReason(ts.getRejectReason());

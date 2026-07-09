@@ -35,9 +35,10 @@ function fmtHours(minutes) {
 }
 
 /* ── Detail modal ─────────────────────────────────────── */
-function DetailModal({ ts, attendanceMap = {}, onClose, onEdit, onDelete }) {
+function DetailModal({ ts, attendanceMap = {}, myTasks = [], onClose, onEdit, onDelete }) {
   if (!ts) return null
   const mods = ts.modules ? ts.modules.split(',').map(m => m.trim()).filter(Boolean) : []
+  const taskIds = ts.taskIds ? ts.taskIds.split(',').map(t => t.trim()).filter(Boolean) : []
   const s = STATUS[ts.status] || STATUS.DRAFT
   const canEdit = ts.status === 'DRAFT' || ts.status === 'REJECTED'
   const canDelete = ts.status === 'DRAFT'
@@ -95,6 +96,31 @@ function DetailModal({ ts, attendanceMap = {}, onClose, onEdit, onDelete }) {
               : <span style={{ color: '#94a3b8', fontSize: 13 }}>—</span>
             }
           </div>
+
+          {/* Tasks */}
+          {taskIds.length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8',
+                textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>Tasks</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {taskIds.map(tid => {
+                  const task = myTasks.find(t => t.taskId === tid)
+                  return (
+                    <div key={tid} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 10,
+                      background: '#f5f3ff', border: '1px solid #e9d5ff',
+                      borderRadius: 8, padding: '8px 12px',
+                    }}>
+                      <span style={{ fontWeight: 700, color: '#6d28d9', fontSize: 13, whiteSpace: 'nowrap' }}>{tid}</span>
+                      {task?.description && (
+                        <span style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>{task.description}</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           <div style={{ marginBottom: 16 }}>
@@ -221,14 +247,18 @@ export default function TimesheetPage({ user }) {
   const [confirmDlg, setConfirmDlg] = useState(null)
   const [showMod, setShowMod]       = useState(false)
   const [showMgr, setShowMgr]       = useState(false)
+  const [showTask, setShowTask]     = useState(false)
   const [mgrSearch, setMgrSearch]   = useState('')
+  const [taskSearch, setTaskSearch] = useState('')
   const [detailTs, setDetailTs]     = useState(null)
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [attachments, setAttachments] = useState([])
   const [selected, setSelected] = useState(new Set())
   const [modSearch, setModSearch] = useState('')
+  const [myTasks, setMyTasks]     = useState([])
   const modRef    = useRef(null)
   const mgrRef    = useRef(null)
+  const taskRef   = useRef(null)
   const attachRef = useRef(null)
 
   const [form, setForm] = useState({
@@ -236,6 +266,7 @@ export default function TimesheetPage({ user }) {
     workingHoursH: 0,
     workingHoursM: 0,
     selectedModules: [],
+    selectedTaskIds: [],
     managerIds: [],
     description: '',
   })
@@ -288,8 +319,9 @@ export default function TimesheetPage({ user }) {
 
   useEffect(() => {
     function h(e) {
-      if (modRef.current && !modRef.current.contains(e.target)) setShowMod(false)
-      if (mgrRef.current && !mgrRef.current.contains(e.target)) setShowMgr(false)
+      if (modRef.current  && !modRef.current.contains(e.target))  setShowMod(false)
+      if (mgrRef.current  && !mgrRef.current.contains(e.target))  setShowMgr(false)
+      if (taskRef.current && !taskRef.current.contains(e.target)) setShowTask(false)
     }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
@@ -298,10 +330,10 @@ export default function TimesheetPage({ user }) {
   async function loadAll() {
     setLoading(true)
     try {
-      const [ts, mods, mgrs] = await Promise.all([
-        api.fetchMyTimesheets(), api.fetchTimesheetModules(), api.fetchTimesheetManagers(),
+      const [ts, mods, mgrs, tasks] = await Promise.all([
+        api.fetchMyTimesheets(), api.fetchTimesheetModules(), api.fetchTimesheetManagers(), api.fetchMyTasks(),
       ])
-      setTimesheets(ts); setModules(mods); setManagers(mgrs)
+      setTimesheets(ts); setModules(mods); setManagers(mgrs); setMyTasks(tasks)
 
       // Fetch attendance for all months covered by timesheets → build date→minutes map
       const monthKeys = [...new Set(ts.map(t => {
@@ -329,7 +361,7 @@ export default function TimesheetPage({ user }) {
   function openNew() {
     setForm({
       workingDate: new Date().toISOString().slice(0, 10),
-      workingHoursH: 0, workingHoursM: 0, selectedModules: [],
+      workingHoursH: 0, workingHoursM: 0, selectedModules: [], selectedTaskIds: [],
       managerIds: managers.length === 1 ? [managers[0].id] : [],
       description: '',
     })
@@ -339,11 +371,13 @@ export default function TimesheetPage({ user }) {
 
   function openEdit(ts) {
     const mods = ts.modules ? ts.modules.split(',').map(m => m.trim()).filter(Boolean) : []
+    const tids = ts.taskIds ? ts.taskIds.split(',').map(t => t.trim()).filter(Boolean) : []
     setForm({
       workingDate: ts.workingDate,
       workingHoursH: 0,
       workingHoursM: 0,
       selectedModules: mods,
+      selectedTaskIds: tids,
       managerIds: ts.managerId ? ts.managerId.split(',').map(m => m.trim()).filter(Boolean) : [],
       description: ts.description || '',
     })
@@ -476,7 +510,9 @@ export default function TimesheetPage({ user }) {
     try {
       const payload = {
         workingDate: form.workingDate, workingHours: finalMins,
-        modules: form.selectedModules.join(', '), managerId: form.managerIds.join(','),
+        modules: form.selectedModules.join(', '),
+        taskIds: form.selectedTaskIds.join(','),
+        managerId: form.managerIds.join(','),
         description: form.description, status: submitStatus,
       }
       let saved
@@ -678,6 +714,81 @@ export default function TimesheetPage({ user }) {
                                 }}>{m.moduleName}</span>
                               </label>
                             ))
+                      }
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Field>
+
+            <Field icon="✅" label="Tasks">
+              <div ref={taskRef} style={{ position: 'relative' }}>
+                <div onClick={() => { setShowTask(v => !v); setTaskSearch('') }} style={{
+                  minHeight: 44, padding: '6px 12px', border: '1px solid #d1d5db',
+                  borderRadius: 8, cursor: 'pointer', background: '#fafafa',
+                  display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center',
+                }}>
+                  {form.selectedTaskIds.length === 0
+                    ? <span style={{ color: '#9ca3af', fontSize: 14 }}>Select tasks…</span>
+                    : form.selectedTaskIds.map(id => (
+                        <span key={id} style={{
+                          background: '#ede9fe', color: '#6d28d9',
+                          borderRadius: 6, padding: '3px 10px', fontSize: 13, fontWeight: 600,
+                        }}>{id}</span>
+                      ))
+                  }
+                  <span style={{ marginLeft: 'auto', color: '#9ca3af', fontSize: 11 }}>▼</span>
+                </div>
+                {showTask && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                    background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)', marginTop: 4,
+                  }}>
+                    <div style={{ padding: '8px 10px', borderBottom: '1px solid #f1f5f9' }}>
+                      <input autoFocus type="text" placeholder="Search by task ID or description…"
+                        value={taskSearch} onChange={e => setTaskSearch(e.target.value)}
+                        onClick={e => e.stopPropagation()}
+                        style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db',
+                          borderRadius: 7, fontSize: 13, boxSizing: 'border-box', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                      {myTasks.length === 0
+                        ? <div style={{ padding: '14px 18px', color: '#9ca3af', fontSize: 13 }}>No tasks assigned to you</div>
+                        : (() => {
+                            const filtered = myTasks.filter(t =>
+                              t.taskId.toLowerCase().includes(taskSearch.toLowerCase()) ||
+                              (t.description || '').toLowerCase().includes(taskSearch.toLowerCase())
+                            )
+                            if (filtered.length === 0)
+                              return <div style={{ padding: '14px 18px', color: '#9ca3af', fontSize: 13 }}>No matches found</div>
+                            return filtered.map(t => (
+                              <label key={t.taskId} style={{
+                                display: 'flex', alignItems: 'flex-start', gap: 12,
+                                padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                background: form.selectedTaskIds.includes(t.taskId) ? '#f5f3ff' : '#fff',
+                              }}>
+                                <input type="checkbox"
+                                  checked={form.selectedTaskIds.includes(t.taskId)}
+                                  onChange={() => setForm(f => ({
+                                    ...f,
+                                    selectedTaskIds: f.selectedTaskIds.includes(t.taskId)
+                                      ? f.selectedTaskIds.filter(id => id !== t.taskId)
+                                      : [...f.selectedTaskIds, t.taskId],
+                                  }))}
+                                  onClick={e => e.stopPropagation()}
+                                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#6d28d9', marginTop: 3, flexShrink: 0 }}
+                                />
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: '#6d28d9' }}>{t.taskId}</div>
+                                  {t.description && (
+                                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>{t.description}</div>
+                                  )}
+                                </div>
+                              </label>
+                            ))
+                          })()
                       }
                     </div>
                   </div>
@@ -972,6 +1083,7 @@ export default function TimesheetPage({ user }) {
       <DetailModal
         ts={detailTs}
         attendanceMap={attendanceMap}
+        myTasks={myTasks}
         onClose={() => setDetailTs(null)}
         onEdit={ts => { openEdit(ts) }}
         onDelete={ts => { handleDelete(ts) }}

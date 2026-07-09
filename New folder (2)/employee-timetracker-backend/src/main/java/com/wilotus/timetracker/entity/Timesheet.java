@@ -39,6 +39,9 @@ public class Timesheet {
     private String status = "DRAFT";
 
     @Column(columnDefinition = "TEXT")
+    private String taskIds;
+
+    @Column(columnDefinition = "TEXT")
     private String rejectReason;
 
     @Column(nullable = false, updatable = false)

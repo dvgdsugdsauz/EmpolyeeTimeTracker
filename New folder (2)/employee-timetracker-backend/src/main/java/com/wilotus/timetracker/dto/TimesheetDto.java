@@ -11,4 +11,5 @@ public class TimesheetDto {
     private String managerId;
     private String description;
     private String status;
+    private String taskIds;
 }
