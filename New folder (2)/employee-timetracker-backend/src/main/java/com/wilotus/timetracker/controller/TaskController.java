@@ -44,8 +44,9 @@ public class TaskController {
     public ResponseEntity<Map<String, Object>> assignBulk(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<String> taskIds = (List<String>) body.get("taskIds");
-        String employeeId = (String) body.get("employeeId");
-        taskService.assignBulk(taskIds, employeeId);
+        String employeeId  = (String) body.get("employeeId");
+        String targetDate  = (String) body.get("targetDate");
+        taskService.assignBulk(taskIds, employeeId, targetDate);
         return ResponseEntity.ok(Map.of("assigned", taskIds.size()));
     }
 

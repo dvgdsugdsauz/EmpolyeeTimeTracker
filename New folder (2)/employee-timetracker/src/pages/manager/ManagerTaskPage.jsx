@@ -61,6 +61,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
   const [empSearch, setEmpSearch]   = useState('')
   const [assignEmp, setAssignEmp]   = useState(null)
   const [empDropOpen, setEmpDropOpen] = useState(false)
+  const [targetDate, setTargetDate] = useState('')
   const [assigning, setAssigning]   = useState(false)
   const [msg, setMsg]               = useState('')
   const empRef = useRef()
@@ -81,7 +82,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
     if (!assignEmp) return
     setAssigning(true)
     try {
-      await api.assignTasksBulk([...checkedIds], assignEmp.id)
+      await api.assignTasksBulk([...checkedIds], assignEmp.id, targetDate)
       onAssigned(assignEmp.name, selectedTasks.length)
     } catch {
       setMsg('Assignment failed')
@@ -102,7 +103,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
       }}
     >
       <div style={{
-        background: '#fff', borderRadius: 16, width: 600, maxHeight: '90vh',
+        background: '#fff', borderRadius: 16, width: 720, maxHeight: '90vh',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 20px 60px rgba(0,0,0,.25)',
         overflow: 'hidden',
@@ -234,6 +235,25 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
                 background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
               }}>{msg}</div>
             )}
+          </div>
+
+          {/* Target Date */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>
+              Target Date
+              <span style={{ fontWeight: 400, color: '#94a3b8', marginLeft: 6 }}>(optional — overrides existing)</span>
+            </div>
+            <input
+              type="date"
+              value={targetDate}
+              onChange={e => setTargetDate(e.target.value)}
+              style={{
+                width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 13,
+                background: '#f8fafc', border: `1px solid ${targetDate ? '#6366f1' : '#e2e8f0'}`,
+                color: targetDate ? '#1e293b' : '#94a3b8', outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
           </div>
         </div>
 

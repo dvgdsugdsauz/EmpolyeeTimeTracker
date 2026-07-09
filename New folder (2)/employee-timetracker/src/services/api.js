@@ -327,9 +327,9 @@ export function assignTask(taskId, employeeId) {
   })
 }
 
-export function assignTasksBulk(taskIds, employeeId) {
+export function assignTasksBulk(taskIds, employeeId, targetDate) {
   return request('/api/tasks/assign-bulk', {
-    method: 'POST', body: JSON.stringify({ taskIds, employeeId }),
+    method: 'POST', body: JSON.stringify({ taskIds, employeeId, targetDate: targetDate || null }),
   })
 }
 

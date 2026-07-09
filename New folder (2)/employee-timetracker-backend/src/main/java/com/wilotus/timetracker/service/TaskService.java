@@ -55,13 +55,14 @@ public class TaskService {
         return toDto(task);
     }
 
-    public void assignBulk(List<String> taskIds, String employeeId) {
+    public void assignBulk(List<String> taskIds, String employeeId, String targetDate) {
         Employee emp = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new RuntimeException("Employee not found: " + employeeId));
         List<Task> tasks = taskRepository.findAllById(taskIds);
         tasks.forEach(t -> {
             t.setAssignedTo(emp.getUsername());
             t.setAssignedToName(emp.getName());
+            if (targetDate != null && !targetDate.isBlank()) t.setTargetDate(targetDate);
         });
         taskRepository.saveAll(tasks);
     }
