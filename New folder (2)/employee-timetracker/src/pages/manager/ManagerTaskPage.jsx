@@ -372,10 +372,9 @@ export default function ManagerTaskPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 
-      {/* Header */}
+      {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1e293b', letterSpacing: '-0.3px' }}>Task Management</h2>
           {checkedIds.size > 0 && (
             <span style={{
               padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,

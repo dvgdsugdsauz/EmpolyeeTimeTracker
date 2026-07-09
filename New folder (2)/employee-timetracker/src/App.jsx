@@ -42,6 +42,8 @@ const PAGE_TITLES = {
   employees:     'Employee Management',
   devices:       'Biometric Devices',
   settings:      'Settings',
+  tasks:         'Task Management',
+  'my-tasks':    'My Tasks',
 }
 
 // Normalize Java array times → ISO string (Jackson serializes LocalDateTime as [y,m,d,h,m,s])
