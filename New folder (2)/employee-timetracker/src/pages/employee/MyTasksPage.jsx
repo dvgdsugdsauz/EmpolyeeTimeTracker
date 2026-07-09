@@ -355,11 +355,14 @@ export default function MyTasksPage() {
                     </span>
                   </td>
                   <td style={tdStyle}>
-                    <span style={{
-                      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                      background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
-                      whiteSpace: 'nowrap',
-                    }}>{status}</span>
+                    <span
+                      className={status === 'In Progress' ? 'task-in-progress' : ''}
+                      style={{
+                        padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                        background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
+                        whiteSpace: 'nowrap', display: 'inline-block',
+                      }}
+                    >{status}</span>
                   </td>
                   <td style={{ ...tdStyle, maxWidth: 180, textAlign: 'left' }}>
                     <span style={{
