@@ -102,7 +102,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
       }}
     >
       <div style={{
-        background: '#fff', borderRadius: 16, width: 440, maxHeight: '85vh',
+        background: '#fff', borderRadius: 16, width: 600, maxHeight: '90vh',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 20px 60px rgba(0,0,0,.25)',
         overflow: 'hidden',
@@ -375,7 +375,7 @@ export default function ManagerTaskPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1e293b' }}>Task Management</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1e293b', letterSpacing: '-0.3px' }}>Task Management</h2>
           {checkedIds.size > 0 && (
             <span style={{
               padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
@@ -384,30 +384,6 @@ export default function ManagerTaskPage() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {assignMsg && (
-            <span style={{
-              fontSize: 13, padding: '5px 12px', borderRadius: 6,
-              background: assignMsg.includes('fail') ? '#fef2f2' : '#f0fdf4',
-              color:      assignMsg.includes('fail') ? '#dc2626' : '#16a34a',
-              border: `1px solid ${assignMsg.includes('fail') ? '#fecaca' : '#bbf7d0'}`,
-            }}>{assignMsg}</span>
-          )}
-          {checkedIds.size > 0 && (
-            <button
-              onClick={() => setShowModal(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px',
-                background: '#16a34a', color: '#fff', border: 'none',
-                borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                boxShadow: '0 2px 8px rgba(22,163,74,.3)',
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              Assign {checkedIds.size} Task{checkedIds.size > 1 ? 's' : ''}
-            </button>
-          )}
           <button
             onClick={() => fileRef.current.click()}
             disabled={importing}
@@ -526,6 +502,42 @@ export default function ManagerTaskPage() {
         </table>
       </div>
       <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>{visible.length} task{visible.length !== 1 ? 's' : ''}</div>
+
+      {/* Floating Assign Button (FAB) - bottom right */}
+      {checkedIds.size > 0 && !showModal && (
+        <button
+          onClick={() => setShowModal(true)}
+          style={{
+            position: 'fixed', bottom: 32, right: 32, zIndex: 500,
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '14px 24px', borderRadius: 50,
+            background: '#16a34a', color: '#fff', border: 'none',
+            cursor: 'pointer', fontWeight: 700, fontSize: 15,
+            boxShadow: '0 6px 24px rgba(22,163,74,.45)',
+            transition: 'transform .1s, box-shadow .1s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(22,163,74,.55)' }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)';    e.currentTarget.style.boxShadow = '0 6px 24px rgba(22,163,74,.45)' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Assign {checkedIds.size} Task{checkedIds.size > 1 ? 's' : ''}
+        </button>
+      )}
+
+      {/* Toast notification */}
+      {assignMsg && (
+        <div style={{
+          position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 600, padding: '12px 24px', borderRadius: 12,
+          background: assignMsg.includes('fail') ? '#fef2f2' : '#f0fdf4',
+          color:      assignMsg.includes('fail') ? '#dc2626' : '#16a34a',
+          border: `1px solid ${assignMsg.includes('fail') ? '#fecaca' : '#bbf7d0'}`,
+          fontWeight: 600, fontSize: 14,
+          boxShadow: '0 4px 20px rgba(0,0,0,.12)',
+        }}>{assignMsg}</div>
+      )}
 
       {/* Assign Modal */}
       {showModal && (
