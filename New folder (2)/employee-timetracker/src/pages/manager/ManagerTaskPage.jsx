@@ -278,6 +278,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
 }
 
 export default function ManagerTaskPage() {
+  const [activeTab, setActiveTab]   = useState('unassigned')
   const [tasks, setTasks]           = useState([])
   const [checkedIds, setCheckedIds] = useState(new Set())
   const [filters, setFilters]       = useState({ module: '', type: '', priority: '', status: '' })
@@ -333,14 +334,18 @@ export default function ManagerTaskPage() {
 
   const setFilter = (key, val) => setFilters(f => ({ ...f, [key]: val }))
 
-  const visible = tasks.filter(t =>
+  const unassignedTasks = tasks.filter(t => !t.assignedTo)
+  const assignedTasks   = tasks.filter(t =>  t.assignedTo)
+  const tabTasks        = activeTab === 'unassigned' ? unassignedTasks : assignedTasks
+
+  const visible = tabTasks.filter(t =>
     (!filters.module   || t.module   === filters.module) &&
     (!filters.type     || t.type     === filters.type) &&
     (!filters.priority || t.priority === filters.priority) &&
     (!filters.status   || t.status   === filters.status)
   )
 
-  const uniq = (key) => [...new Set(tasks.map(t => t[key]).filter(Boolean))]
+  const uniq = (key) => [...new Set(tabTasks.map(t => t[key]).filter(Boolean))]
 
   const allChecked  = visible.length > 0 && visible.every(t => checkedIds.has(t.taskId))
   const someChecked = visible.some(t => checkedIds.has(t.taskId))
@@ -372,6 +377,33 @@ export default function ManagerTaskPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid #e2e8f0', paddingBottom: 0 }}>
+        {[
+          { key: 'unassigned', label: 'Unassigned Tasks', count: unassignedTasks.length },
+          { key: 'assigned',   label: 'Assigned Tasks',   count: assignedTasks.length },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => { setActiveTab(tab.key); setCheckedIds(new Set()); setFilters({ module: '', type: '', priority: '', status: '' }) }}
+            style={{
+              padding: '10px 20px', border: 'none', cursor: 'pointer',
+              background: 'none', fontWeight: 600, fontSize: 14,
+              color: activeTab === tab.key ? '#6366f1' : '#64748b',
+              borderBottom: activeTab === tab.key ? '2px solid #6366f1' : '2px solid transparent',
+              marginBottom: '-2px', display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            {tab.label}
+            <span style={{
+              padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+              background: activeTab === tab.key ? '#eef2ff' : '#f1f5f9',
+              color: activeTab === tab.key ? '#6366f1' : '#94a3b8',
+            }}>{tab.count}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -383,23 +415,27 @@ export default function ManagerTaskPage() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button
-            onClick={() => fileRef.current.click()}
-            disabled={importing}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px',
-              background: '#6366f1', color: '#fff', border: 'none',
-              borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-              boxShadow: '0 2px 8px rgba(99,102,241,.3)', opacity: importing ? .7 : 1,
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
-              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
-            </svg>
-            {importing ? 'Importing…' : 'Import Excel'}
-          </button>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleImport} />
+          {activeTab === 'unassigned' && (
+            <>
+              <button
+                onClick={() => fileRef.current.click()}
+                disabled={importing}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px',
+                  background: '#6366f1', color: '#fff', border: 'none',
+                  borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                  boxShadow: '0 2px 8px rgba(99,102,241,.3)', opacity: importing ? .7 : 1,
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                </svg>
+                {importing ? 'Importing…' : 'Import Excel'}
+              </button>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleImport} />
+            </>
+          )}
         </div>
       </div>
 
