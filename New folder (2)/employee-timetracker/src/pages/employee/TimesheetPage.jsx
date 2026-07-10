@@ -172,6 +172,120 @@ function DetailModal({ ts, attendanceMap = {}, myTasks = [], onClose, onEdit, on
   )
 }
 
+/* ── Custom Date Picker ────────────────────────────────── */
+function DatePicker({ value, onChange, max }) {
+  const [open, setOpen] = useState(false)
+  const [viewYear, setViewYear] = useState(() => value ? parseInt(value.slice(0,4)) : new Date().getFullYear())
+  const [viewMonth, setViewMonth] = useState(() => value ? parseInt(value.slice(5,7))-1 : new Date().getMonth())
+  const ref = useRef()
+
+  useEffect(() => {
+    function h(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  useEffect(() => {
+    if (value) { setViewYear(parseInt(value.slice(0,4))); setViewMonth(parseInt(value.slice(5,7))-1) }
+  }, [value])
+
+  const pad = n => String(n).padStart(2,'0')
+  const maxDate = max ? new Date(max+'T00:00:00') : null
+  const todayD = new Date(); todayD.setHours(0,0,0,0)
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa']
+  const firstDay    = new Date(viewYear, viewMonth, 1).getDay()
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate()
+  const nowD = new Date(); const canNext = !(viewYear===nowD.getFullYear()&&viewMonth===nowD.getMonth())
+
+  function prevMonth() {
+    if (viewMonth===0){setViewMonth(11);setViewYear(y=>y-1)} else setViewMonth(m=>m-1)
+  }
+  function nextMonth() {
+    if (!canNext) return
+    if (viewMonth===11){setViewMonth(0);setViewYear(y=>y+1)} else setViewMonth(m=>m+1)
+  }
+  function selectDay(day) {
+    const d = new Date(viewYear, viewMonth, day); d.setHours(0,0,0,0)
+    if (maxDate && d > maxDate) return
+    onChange(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`)
+    setOpen(false)
+  }
+
+  const display = value ? `${value.slice(8)}/${value.slice(5,7)}/${value.slice(0,4)}` : ''
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div onClick={() => setOpen(v=>!v)} style={{
+        width: '100%', padding: '11px 14px', border: '1px solid #d1d5db',
+        borderRadius: 8, fontSize: 14, boxSizing: 'border-box',
+        background: open ? '#fff' : '#fafafa', outline: 'none', color: '#1e293b',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        userSelect: 'none', borderColor: open ? '#6366f1' : '#d1d5db',
+      }}>
+        <span style={{ color: value ? '#1e293b' : '#9ca3af' }}>{display || 'Select date…'}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 400,
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14,
+          boxShadow: '0 12px 32px rgba(0,0,0,0.14)', width: 290, padding: '14px 16px',
+        }}>
+          {/* Month nav */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <button onClick={prevMonth} style={{ background: '#f1f5f9', border: 'none', borderRadius: 7, width: 30, height: 30, cursor: 'pointer', fontSize: 16, color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{MONTHS[viewMonth]} {viewYear}</span>
+            <button onClick={nextMonth} style={{ background: canNext ? '#f1f5f9' : 'none', border: 'none', borderRadius: 7, width: 30, height: 30, cursor: canNext ? 'pointer' : 'not-allowed', fontSize: 16, color: canNext ? '#475569' : '#cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+          </div>
+          {/* Day headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 4 }}>
+            {DAYS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#94a3b8', padding: '4px 0' }}>{d}</div>)}
+          </div>
+          {/* Days */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+            {Array.from({length: firstDay}, (_,i) => <div key={'e'+i}/>)}
+            {Array.from({length: daysInMonth}, (_,i) => {
+              const day = i+1
+              const d = new Date(viewYear, viewMonth, day); d.setHours(0,0,0,0)
+              const disabled  = maxDate && d > maxDate
+              const isToday   = d.getTime() === todayD.getTime()
+              const dateStr   = `${viewYear}-${pad(viewMonth+1)}-${pad(day)}`
+              const selected  = dateStr === value
+              return (
+                <button key={day} onClick={() => !disabled && selectDay(day)}
+                  style={{
+                    border: 'none', borderRadius: 8, padding: '7px 0', fontSize: 13,
+                    fontWeight: selected || isToday ? 700 : 400,
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    background: selected ? '#4f9e6f' : 'none',
+                    color: disabled ? '#d1d5db' : selected ? '#fff' : isToday ? '#4f9e6f' : '#374151',
+                    outline: isToday && !selected ? '2px solid #4f9e6f' : 'none',
+                    outlineOffset: -2,
+                  }}
+                  onMouseEnter={e => { if (!disabled && !selected) e.currentTarget.style.background='#f0fdf4' }}
+                  onMouseLeave={e => { if (!selected) e.currentTarget.style.background='none' }}
+                >{day}</button>
+              )
+            })}
+          </div>
+          {/* Today shortcut */}
+          <div style={{ marginTop: 10, borderTop: '1px solid #f1f5f9', paddingTop: 10, textAlign: 'center' }}>
+            <button onClick={() => { const t=new Date(); onChange(`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`); setOpen(false) }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#4f9e6f', fontWeight: 700 }}>
+              Today
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Form field wrapper ────────────────────────────────── */
 function Field({ icon, label, required, children }) {
   return (
@@ -645,9 +759,11 @@ export default function TimesheetPage({ user }) {
             </Field>
 
             <Field icon="📅" label="Working Date" required>
-              <input type="date" value={form.workingDate}
-                onChange={e => setForm(f => ({ ...f, workingDate: e.target.value }))}
-                max={new Date().toISOString().slice(0, 10)} style={inputStyle} />
+              <DatePicker
+                value={form.workingDate}
+                onChange={d => setForm(f => ({ ...f, workingDate: d }))}
+                max={new Date().toISOString().slice(0, 10)}
+              />
             </Field>
 
             {/* Working Hours hidden — auto-fetched from attendance on save */}
