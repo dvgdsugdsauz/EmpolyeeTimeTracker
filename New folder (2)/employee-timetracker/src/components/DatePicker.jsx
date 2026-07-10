@@ -61,10 +61,17 @@ export function DatePicker({ value, onChange, max, min, placeholder = 'Select da
   const [open, setOpen]         = useState(false)
   const [viewYear, setViewYear] = useState(() => value ? parseInt(value.slice(0,4)) : new Date().getFullYear())
   const [viewMonth, setViewMonth] = useState(() => value ? parseInt(value.slice(5,7))-1 : new Date().getMonth())
-  const ref = useRef()
+  const [popupPos, setPopupPos] = useState({ top: 0, left: 0, width: 280 })
+  const triggerRef = useRef()
+  const popupRef   = useRef()
 
   useEffect(() => {
-    function h(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    function h(e) {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target) &&
+        popupRef.current   && !popupRef.current.contains(e.target)
+      ) setOpen(false)
+    }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [])
@@ -73,9 +80,19 @@ export function DatePicker({ value, onChange, max, min, placeholder = 'Select da
     if (value) { setViewYear(parseInt(value.slice(0,4))); setViewMonth(parseInt(value.slice(5,7))-1) }
   }, [value])
 
+  function openCalendar() {
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect()
+      const popupH = 320
+      const spaceBelow = window.innerHeight - r.bottom
+      const top = spaceBelow >= popupH ? r.bottom + 4 : r.top - popupH - 4
+      setPopupPos({ top, left: r.left, width: Math.max(r.width, 280) })
+    }
+    setOpen(v => !v)
+  }
+
   const maxDate = max ? new Date(max+'T00:00:00') : null
   const minDate = min ? new Date(min+'T00:00:00') : null
-  const nowD = new Date()
   const canNext = !max || !(viewYear===parseInt(max.slice(0,4)) && viewMonth===parseInt(max.slice(5,7))-1)
 
   function prevMonth() {
@@ -89,8 +106,8 @@ export function DatePicker({ value, onChange, max, min, placeholder = 'Select da
   const display = value ? `${value.slice(8)}/${value.slice(5,7)}/${value.slice(0,4)}` : ''
 
   return (
-    <div ref={ref} style={{ position:'relative' }}>
-      <div onClick={() => setOpen(v=>!v)} style={{
+    <div style={{ position:'relative' }}>
+      <div ref={triggerRef} onClick={openCalendar} style={{
         width:'100%', padding:'9px 12px', border:`1px solid ${open ? accentColor : (value ? '#6366f1' : '#e2e8f0')}`,
         borderRadius:8, fontSize:13, boxSizing:'border-box',
         background: open ? '#fff' : '#f8fafc', cursor:'pointer',
@@ -104,10 +121,10 @@ export function DatePicker({ value, onChange, max, min, placeholder = 'Select da
         </svg>
       </div>
       {open && (
-        <div style={{
-          position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:500,
+        <div ref={popupRef} style={{
+          position:'fixed', top: popupPos.top, left: popupPos.left, zIndex:9999,
           background:'#fff', border:'1px solid #e2e8f0', borderRadius:14,
-          boxShadow:'0 12px 32px rgba(0,0,0,0.14)', width:280, padding:'14px 16px',
+          boxShadow:'0 12px 32px rgba(0,0,0,0.18)', width: popupPos.width, padding:'14px 16px',
         }}>
           <MonthNav viewYear={viewYear} viewMonth={viewMonth} onPrev={prevMonth} onNext={nextMonth} canNext={canNext} />
           <CalendarGrid viewYear={viewYear} viewMonth={viewMonth} value={value} maxDate={maxDate} minDate={minDate}
@@ -132,7 +149,6 @@ export function DatePicker({ value, onChange, max, min, placeholder = 'Select da
 
 /* ── Date + Time picker ───────────────────────────────── */
 export function DateTimePicker({ value, onChange, placeholder = 'Select date & time…' }) {
-  // value format: "YYYY-MM-DDTHH:MM" or "YYYY-MM-DD HH:MM"
   const normalize = v => v ? v.replace(' ','T') : ''
   const val = normalize(value)
 
@@ -144,10 +160,17 @@ export function DateTimePicker({ value, onChange, placeholder = 'Select date & t
   const [viewMonth, setViewMonth] = useState(() => datePart ? parseInt(datePart.slice(5,7))-1 : new Date().getMonth())
   const [hour, setHour]           = useState(() => timePart ? timePart.slice(0,2) : pad(new Date().getHours()))
   const [minute, setMinute]       = useState(() => timePart ? timePart.slice(3,5) : pad(new Date().getMinutes()))
-  const ref = useRef()
+  const [popupPos, setPopupPos]   = useState({ top: 0, left: 0, width: 290 })
+  const triggerRef = useRef()
+  const popupRef   = useRef()
 
   useEffect(() => {
-    function h(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    function h(e) {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target) &&
+        popupRef.current   && !popupRef.current.contains(e.target)
+      ) setOpen(false)
+    }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [])
@@ -156,6 +179,17 @@ export function DateTimePicker({ value, onChange, placeholder = 'Select date & t
     if (datePart) { setViewYear(parseInt(datePart.slice(0,4))); setViewMonth(parseInt(datePart.slice(5,7))-1) }
     if (timePart) { setHour(timePart.slice(0,2)); setMinute(timePart.slice(3,5)) }
   }, [value])
+
+  function openCalendar() {
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect()
+      const popupH = 420
+      const spaceBelow = window.innerHeight - r.bottom
+      const top = spaceBelow >= popupH ? r.bottom + 4 : r.top - popupH - 4
+      setPopupPos({ top, left: r.left, width: Math.max(r.width, 290) })
+    }
+    setOpen(v => !v)
+  }
 
   const nowD = new Date()
   const canNext = !(viewYear===nowD.getFullYear() && viewMonth===nowD.getMonth())
@@ -201,8 +235,8 @@ export function DateTimePicker({ value, onChange, placeholder = 'Select date & t
       : ''
 
   return (
-    <div ref={ref} style={{ position:'relative' }}>
-      <div onClick={() => setOpen(v=>!v)} style={{
+    <div style={{ position:'relative' }}>
+      <div ref={triggerRef} onClick={openCalendar} style={{
         width:'100%', padding:'9px 12px', border:`1px solid ${open ? '#6366f1' : '#e2e8f0'}`,
         borderRadius:8, fontSize:13, boxSizing:'border-box',
         background: open ? '#fff' : '#f8fafc', cursor:'pointer',
@@ -214,10 +248,10 @@ export function DateTimePicker({ value, onChange, placeholder = 'Select date & t
         </svg>
       </div>
       {open && (
-        <div style={{
-          position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:500,
+        <div ref={popupRef} style={{
+          position:'fixed', top: popupPos.top, left: popupPos.left, zIndex:9999,
           background:'#fff', border:'1px solid #e2e8f0', borderRadius:14,
-          boxShadow:'0 12px 32px rgba(0,0,0,0.14)', width:290, padding:'14px 16px',
+          boxShadow:'0 12px 32px rgba(0,0,0,0.18)', width: popupPos.width, padding:'14px 16px',
         }}>
           <MonthNav viewYear={viewYear} viewMonth={viewMonth} onPrev={prevMonth} onNext={nextMonth} canNext={canNext} />
           <CalendarGrid viewYear={viewYear} viewMonth={viewMonth} value={datePart} maxDate={null} minDate={null}

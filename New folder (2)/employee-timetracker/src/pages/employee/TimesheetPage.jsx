@@ -177,10 +177,17 @@ function DatePicker({ value, onChange, max }) {
   const [open, setOpen] = useState(false)
   const [viewYear, setViewYear] = useState(() => value ? parseInt(value.slice(0,4)) : new Date().getFullYear())
   const [viewMonth, setViewMonth] = useState(() => value ? parseInt(value.slice(5,7))-1 : new Date().getMonth())
-  const ref = useRef()
+  const [popupPos, setPopupPos] = useState({ top: 0, left: 0, width: 290 })
+  const triggerRef = useRef()
+  const popupRef   = useRef()
 
   useEffect(() => {
-    function h(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    function h(e) {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target) &&
+        popupRef.current   && !popupRef.current.contains(e.target)
+      ) setOpen(false)
+    }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [])
@@ -188,6 +195,16 @@ function DatePicker({ value, onChange, max }) {
   useEffect(() => {
     if (value) { setViewYear(parseInt(value.slice(0,4))); setViewMonth(parseInt(value.slice(5,7))-1) }
   }, [value])
+
+  function openCalendar() {
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - r.bottom
+      const top = spaceBelow >= 320 ? r.bottom + 4 : r.top - 320 - 4
+      setPopupPos({ top, left: r.left, width: Math.max(r.width, 290) })
+    }
+    setOpen(v => !v)
+  }
 
   const pad = n => String(n).padStart(2,'0')
   const maxDate = max ? new Date(max+'T00:00:00') : null
@@ -215,8 +232,8 @@ function DatePicker({ value, onChange, max }) {
   const display = value ? `${value.slice(8)}/${value.slice(5,7)}/${value.slice(0,4)}` : ''
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <div onClick={() => setOpen(v=>!v)} style={{
+    <div style={{ position: 'relative' }}>
+      <div ref={triggerRef} onClick={openCalendar} style={{
         width: '100%', padding: '11px 14px', border: '1px solid #d1d5db',
         borderRadius: 8, fontSize: 14, boxSizing: 'border-box',
         background: open ? '#fff' : '#fafafa', outline: 'none', color: '#1e293b',
@@ -231,10 +248,10 @@ function DatePicker({ value, onChange, max }) {
         </svg>
       </div>
       {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 400,
+        <div ref={popupRef} style={{
+          position: 'fixed', top: popupPos.top, left: popupPos.left, zIndex: 9999,
           background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.14)', width: 290, padding: '14px 16px',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.18)', width: popupPos.width, padding: '14px 16px',
         }}>
           {/* Month nav */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
