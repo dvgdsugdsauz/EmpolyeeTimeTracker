@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import * as api from '../../services/api'
+import { DateTimePicker } from '../../components/DatePicker'
 
 const PRIORITY_COLOR = {
   High:   { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
@@ -116,18 +117,18 @@ function TaskModal({ task, onClose, onSaved }) {
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Actual Start</label>
-              <input
-                type="datetime-local" value={form.actualStartDateTime}
-                onChange={e => set('actualStartDateTime', e.target.value)}
-                style={inputStyle}
+              <DateTimePicker
+                value={form.actualStartDateTime}
+                onChange={v => set('actualStartDateTime', v)}
+                placeholder="Select start…"
               />
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Actual End</label>
-              <input
-                type="datetime-local" value={form.actualEndDateTime}
-                onChange={e => set('actualEndDateTime', e.target.value)}
-                style={inputStyle}
+              <DateTimePicker
+                value={form.actualEndDateTime}
+                onChange={v => set('actualEndDateTime', v)}
+                placeholder="Select end…"
               />
             </div>
           </div>

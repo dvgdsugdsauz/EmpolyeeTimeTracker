@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import * as api from '../../services/api'
+import { DatePicker } from '../../components/DatePicker'
 
 const PRIORITY_COLOR = {
   High:   { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
@@ -245,30 +246,22 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
               <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>
                 Planned Date <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span>
               </div>
-              <input
-                type="date"
+              <DatePicker
                 value={plannedDate}
-                onChange={e => setPlannedDate(e.target.value)}
-                style={{
-                  width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 13,
-                  background: '#f8fafc', border: `1px solid ${plannedDate ? '#6366f1' : '#e2e8f0'}`,
-                  color: plannedDate ? '#1e293b' : '#94a3b8', outline: 'none', boxSizing: 'border-box',
-                }}
+                onChange={setPlannedDate}
+                placeholder="Pick date…"
+                accentColor="#6366f1"
               />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>
                 Target Date <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span>
               </div>
-              <input
-                type="date"
+              <DatePicker
                 value={targetDate}
-                onChange={e => setTargetDate(e.target.value)}
-                style={{
-                  width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 13,
-                  background: '#f8fafc', border: `1px solid ${targetDate ? '#6366f1' : '#e2e8f0'}`,
-                  color: targetDate ? '#1e293b' : '#94a3b8', outline: 'none', boxSizing: 'border-box',
-                }}
+                onChange={setTargetDate}
+                placeholder="Pick date…"
+                accentColor="#6366f1"
               />
             </div>
           </div>
