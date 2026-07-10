@@ -393,7 +393,7 @@ export default function TimesheetPage({ user }) {
   const attachRef = useRef(null)
 
   const [form, setForm] = useState({
-    workingDate: new Date().toISOString().slice(0, 10),
+    workingDate: '',
     workingHoursH: 0,
     workingHoursM: 0,
     selectedModules: [],
@@ -491,7 +491,7 @@ export default function TimesheetPage({ user }) {
 
   function openNew() {
     setForm({
-      workingDate: new Date().toISOString().slice(0, 10),
+      workingDate: '',
       workingHoursH: 0, workingHoursM: 0, selectedModules: [], selectedTaskIds: [],
       managerIds: managers.length === 1 ? [managers[0].id] : [],
       description: '',
