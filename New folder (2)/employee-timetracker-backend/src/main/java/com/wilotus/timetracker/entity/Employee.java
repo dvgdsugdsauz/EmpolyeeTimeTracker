@@ -41,6 +41,12 @@ public class Employee {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column(name = "group_id")
+    private Long groupId;
+
+    @Column(name = "sub_group_id")
+    private Long subGroupId;
+
     @Column(name = "timesheet_access")
     private boolean timesheetAccess;
 

@@ -355,6 +355,29 @@ export function deleteSubTask(id) {
   return request(`/api/subtasks/${id}`, { method: 'DELETE' })
 }
 
+// ── Groups ────────────────────────────────────────────────────────────────
+export function fetchGroups() {
+  return request('/api/groups')
+}
+export function createGroup(name) {
+  return request('/api/groups', { method: 'POST', body: JSON.stringify({ name }) })
+}
+export function deleteGroup(id) {
+  return request(`/api/groups/${id}`, { method: 'DELETE' })
+}
+export function addSubGroup(groupId, name) {
+  return request(`/api/groups/${groupId}/subgroups`, { method: 'POST', body: JSON.stringify({ name }) })
+}
+export function deleteSubGroup(sgId) {
+  return request(`/api/groups/subgroups/${sgId}`, { method: 'DELETE' })
+}
+export function assignToGroup(employeeId, groupId, subGroupId) {
+  return request('/api/groups/assign', { method: 'PUT', body: JSON.stringify({ employeeId, groupId, subGroupId }) })
+}
+export function removeFromGroup(employeeId) {
+  return request(`/api/groups/assign/${employeeId}`, { method: 'DELETE' })
+}
+
 export function fetchTimesheetManagers() {
   return request('/api/timesheets/managers')
 }

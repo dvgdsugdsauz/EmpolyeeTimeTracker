@@ -110,6 +110,8 @@ public class EmployeeService {
         dto.setAvatar(emp.getAvatar());
         dto.setActive(emp.isActive());
         dto.setTimesheetAccess(emp.isTimesheetAccess());
+        dto.setGroupId(emp.getGroupId());
+        dto.setSubGroupId(emp.getSubGroupId());
         // password deliberately not returned
         return dto;
     }

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { resetEmployeePassword } from '../../services/api'
+import { useState, useEffect } from 'react'
+import { resetEmployeePassword, fetchGroups, createGroup as apiCreateGroup, deleteGroup as apiDeleteGroup, addSubGroup as apiAddSubGroup, deleteSubGroup as apiDeleteSubGroup, assignToGroup, removeFromGroup as apiRemoveFromGroup } from '../../services/api'
 
 const USE_API = Boolean(import.meta.env.VITE_API_URL)
 
@@ -40,6 +40,7 @@ function RoleBadge({ role }) {
 }
 
 export default function UserManagement({ users, onAddUser, onEditUser, onDeleteUser }) {
+  const [activeTab, setActiveTab]         = useState('users')
   const [showAddForm, setShowAddForm]     = useState(false)
   const [editUser, setEditUser]           = useState(null)
   const [form, setForm]                   = useState(EMPTY_FORM)
@@ -52,6 +53,24 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
   const [resetPw, setResetPw]             = useState('')
   const [resetMsg, setResetMsg]           = useState('')
   const [resetError, setResetError]       = useState('')
+
+  // ── Groups state ──────────────────────────────────────────────────────────
+  const [groups, setGroups]               = useState([])
+  const [groupsLoading, setGroupsLoading] = useState(false)
+  const [manageGroup, setManageGroup]     = useState(null)  // group being managed
+  const [newGroupName, setNewGroupName]   = useState('')
+  const [showCreateGroup, setShowCreateGroup] = useState(false)
+  const [groupErr, setGroupErr]           = useState('')
+
+  const loadGroups = async () => {
+    setGroupsLoading(true)
+    try { setGroups(await fetchGroups()) } catch {}
+    setGroupsLoading(false)
+  }
+
+  useEffect(() => {
+    if (activeTab === 'groups') loadGroups()
+  }, [activeTab])
 
   const handleResetPassword = async (e) => {
     e.preventDefault()
@@ -124,8 +143,131 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
     setEditUser(null)
   }
 
+  // ── Group CRUD handlers ───────────────────────────────────────────────────
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) return
+    setGroupErr('')
+    try {
+      await apiCreateGroup(newGroupName.trim())
+      setNewGroupName(''); setShowCreateGroup(false)
+      loadGroups()
+    } catch (e) { setGroupErr(e.message) }
+  }
+
+  const handleDeleteGroup = async (id) => {
+    await apiDeleteGroup(id)
+    if (manageGroup?.id === id) setManageGroup(null)
+    loadGroups()
+  }
+
+  const handleAddSubGroup = async (groupId, name) => {
+    if (!name.trim()) return
+    await apiAddSubGroup(groupId, name.trim())
+    loadGroups()
+    // refresh manageGroup too
+    setManageGroup(g => g?.id === groupId ? { ...g, _refresh: Date.now() } : g)
+  }
+
+  const handleDeleteSubGroup = async (sgId) => {
+    await apiDeleteSubGroup(sgId)
+    loadGroups()
+  }
+
+  const handleAssign = async (empId, groupId, subGroupId) => {
+    await assignToGroup(empId, groupId, subGroupId ?? null)
+    loadGroups()
+  }
+
+  const handleRemove = async (empId) => {
+    await apiRemoveFromGroup(empId)
+    loadGroups()
+  }
+
   return (
     <div className="page-content">
+      {/* ── Tab switcher ── */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: '2px solid #e2e8f0' }}>
+        {[['users', 'Users'], ['groups', 'Groups']].map(([key, label]) => (
+          <button key={key} onClick={() => setActiveTab(key)} style={{
+            padding: '9px 24px', border: 'none', background: 'none', cursor: 'pointer',
+            fontWeight: 600, fontSize: 14,
+            color: activeTab === key ? '#7c3aed' : '#64748b',
+            borderBottom: activeTab === key ? '2px solid #7c3aed' : '2px solid transparent',
+            marginBottom: -2, transition: 'all .15s',
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {/* ══════════ GROUPS TAB ══════════ */}
+      {activeTab === 'groups' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1e293b' }}>Groups</h3>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Organise employees into groups and sub-groups</div>
+            </div>
+            <button onClick={() => { setShowCreateGroup(true); setGroupErr('') }} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8,
+              border: 'none', background: '#7c3aed', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(124,58,237,.3)',
+            }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Create Group
+            </button>
+          </div>
+
+          {groupsLoading ? (
+            <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
+          ) : groups.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', background: '#f8fafc', borderRadius: 12, border: '2px dashed #e2e8f0' }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>No groups yet</div>
+              <div style={{ fontSize: 13 }}>Create a group to organise your team</div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 16 }}>
+              {groups.map(g => <GroupCard key={g.id} group={g} users={users}
+                onManage={() => setManageGroup(g)}
+                onDelete={() => handleDeleteGroup(g.id)}
+              />)}
+            </div>
+          )}
+
+          {/* Create Group modal */}
+          {showCreateGroup && (
+            <div style={{ position:'fixed', inset:0, zIndex:1200, background:'rgba(15,23,42,.45)', display:'flex', alignItems:'center', justifyContent:'center' }}
+              onClick={e => { if (e.target===e.currentTarget) setShowCreateGroup(false) }}>
+              <div style={{ background:'#fff', borderRadius:14, width:380, padding:28, boxShadow:'0 20px 60px rgba(0,0,0,.2)' }}>
+                <h4 style={{ margin:'0 0 16px', fontSize:16, fontWeight:700 }}>Create Group</h4>
+                <input autoFocus value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
+                  onKeyDown={e => e.key==='Enter' && handleCreateGroup()}
+                  placeholder="e.g. Development" style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #e2e8f0', fontSize:14, boxSizing:'border-box', outline:'none' }} />
+                {groupErr && <div style={{ color:'#dc2626', fontSize:12, marginTop:6 }}>{groupErr}</div>}
+                <div style={{ display:'flex', gap:8, marginTop:16, justifyContent:'flex-end' }}>
+                  <button onClick={() => setShowCreateGroup(false)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid #e2e8f0', background:'#f1f5f9', color:'#64748b', fontWeight:600, cursor:'pointer' }}>Cancel</button>
+                  <button onClick={handleCreateGroup} style={{ padding:'8px 20px', borderRadius:8, border:'none', background:'#7c3aed', color:'#fff', fontWeight:700, cursor:'pointer' }}>Create</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Manage Members modal */}
+          {manageGroup && (
+            <ManageGroupModal
+              group={groups.find(g => g.id === manageGroup.id) || manageGroup}
+              users={users}
+              onClose={() => setManageGroup(null)}
+              onAddSubGroup={handleAddSubGroup}
+              onDeleteSubGroup={handleDeleteSubGroup}
+              onAssign={handleAssign}
+              onRemove={handleRemove}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ══════════ USERS TAB ══════════ */}
+      {activeTab === 'users' && (
       <div className="section-card">
         <div className="section-header">
           <div className="section-header-left">
@@ -387,6 +529,189 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
           </div>
         </div>
       )}
+      </div> {/* end users tab */}
+      )}
+    </div>
+  )
+}
+
+/* ── GroupCard ──────────────────────────────────────────────────────────── */
+function GroupCard({ group, users, onManage, onDelete }) {
+  const totalMembers = group.directMembers.length + group.subGroups.reduce((s, sg) => s + sg.members.length, 0)
+  return (
+    <div style={{ background:'#fff', borderRadius:12, border:'1.5px solid #e2e8f0', padding:'18px 20px', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:12 }}>
+        <div>
+          <div style={{ fontWeight:700, fontSize:15, color:'#1e293b' }}>{group.name}</div>
+          <div style={{ fontSize:12, color:'#94a3b8', marginTop:2 }}>{totalMembers} member{totalMembers!==1?'s':''}</div>
+        </div>
+        <button onClick={onDelete} title="Delete group" style={{ border:'none', background:'none', cursor:'pointer', color:'#cbd5e1', padding:4 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+        </button>
+      </div>
+      {group.subGroups.length > 0 && (
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
+          {group.subGroups.map(sg => (
+            <span key={sg.id} style={{ padding:'3px 10px', borderRadius:20, background:'#f3e8ff', color:'#7c3aed', fontSize:12, fontWeight:600 }}>
+              {sg.name} <span style={{ color:'#a78bfa' }}>({sg.members.length})</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {/* Member avatars */}
+      {totalMembers > 0 && (
+        <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:12 }}>
+          {[...group.directMembers, ...group.subGroups.flatMap(sg => sg.members)].slice(0,8).map(m => (
+            <div key={m.id} title={m.name} style={{
+              width:28, height:28, borderRadius:'50%', background:'#7c3aed22', color:'#7c3aed',
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700,
+            }}>{m.avatar || m.name.slice(0,2).toUpperCase()}</div>
+          ))}
+          {totalMembers > 8 && <div style={{ width:28, height:28, borderRadius:'50%', background:'#f1f5f9', color:'#64748b', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:600 }}>+{totalMembers-8}</div>}
+        </div>
+      )}
+      <button onClick={onManage} style={{
+        width:'100%', padding:'7px 0', borderRadius:8, border:'1.5px solid #7c3aed',
+        background:'none', color:'#7c3aed', fontWeight:600, fontSize:13, cursor:'pointer',
+      }}>Manage Members</button>
+    </div>
+  )
+}
+
+/* ── ManageGroupModal ───────────────────────────────────────────────────── */
+function ManageGroupModal({ group, users, onClose, onAddSubGroup, onDeleteSubGroup, onAssign, onRemove }) {
+  const [desigFilter, setDesigFilter] = useState('')
+  const [newSgName, setNewSgName]     = useState('')
+  const [addingSg, setAddingSg]       = useState(false)
+  const [pickSg, setPickSg]           = useState({})  // empId → subGroupId to assign
+
+  const allMembers = new Set([
+    ...group.directMembers.map(m => m.id),
+    ...group.subGroups.flatMap(sg => sg.members.map(m => m.id)),
+  ])
+
+  const available = users.filter(u =>
+    !allMembers.has(u.id) &&
+    (!desigFilter || (u.designation || '').toLowerCase().includes(desigFilter.toLowerCase()))
+  )
+
+  const designations = [...new Set(users.map(u => u.designation).filter(Boolean))]
+
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:1300, background:'rgba(15,23,42,.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+      onClick={e => { if (e.target===e.currentTarget) onClose() }}>
+      <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:680, maxHeight:'88vh', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,.22)' }}>
+        {/* Header */}
+        <div style={{ padding:'20px 24px 14px', borderBottom:'1px solid #e2e8f0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ fontWeight:700, fontSize:16, color:'#1e293b' }}>Manage — {group.name}</div>
+            <div style={{ fontSize:12, color:'#94a3b8', marginTop:2 }}>Add/remove members and sub-groups</div>
+          </div>
+          <button onClick={onClose} style={{ border:'none', background:'none', cursor:'pointer', fontSize:20, color:'#94a3b8' }}>×</button>
+        </div>
+
+        <div style={{ flex:1, overflow:'auto', padding:'16px 24px 20px' }}>
+          {/* Sub-groups row */}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:.5, marginBottom:8 }}>Sub-groups</div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
+              {group.subGroups.map(sg => (
+                <span key={sg.id} style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:20, background:'#f3e8ff', color:'#7c3aed', fontSize:13, fontWeight:600 }}>
+                  {sg.name}
+                  <button onClick={() => onDeleteSubGroup(sg.id)} style={{ border:'none', background:'none', cursor:'pointer', color:'#a78bfa', fontSize:14, lineHeight:1, padding:0 }}>×</button>
+                </span>
+              ))}
+              {addingSg ? (
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <input autoFocus value={newSgName} onChange={e => setNewSgName(e.target.value)}
+                    onKeyDown={e => { if (e.key==='Enter') { onAddSubGroup(group.id, newSgName); setNewSgName(''); setAddingSg(false) } if (e.key==='Escape') setAddingSg(false) }}
+                    placeholder="Sub-group name" style={{ padding:'5px 10px', borderRadius:8, border:'1.5px solid #a78bfa', fontSize:13, outline:'none', width:150 }} />
+                  <button onClick={() => { onAddSubGroup(group.id, newSgName); setNewSgName(''); setAddingSg(false) }}
+                    style={{ padding:'5px 12px', borderRadius:8, border:'none', background:'#7c3aed', color:'#fff', fontWeight:600, fontSize:13, cursor:'pointer' }}>Add</button>
+                  <button onClick={() => setAddingSg(false)} style={{ padding:'5px 10px', borderRadius:8, border:'1px solid #e2e8f0', background:'#f1f5f9', color:'#64748b', fontSize:13, cursor:'pointer' }}>Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setAddingSg(true)} style={{ padding:'4px 12px', borderRadius:20, border:'1.5px dashed #a78bfa', background:'none', color:'#7c3aed', fontSize:13, fontWeight:600, cursor:'pointer' }}>+ Add Sub-group</button>
+              )}
+            </div>
+          </div>
+
+          {/* Current members */}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:.5, marginBottom:8 }}>Current Members ({allMembers.size})</div>
+            {allMembers.size === 0 ? (
+              <div style={{ color:'#94a3b8', fontSize:13, padding:'8px 0' }}>No members yet</div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                {group.directMembers.map(m => <MemberRow key={m.id} m={m} label="Direct" onRemove={() => onRemove(m.id)} />)}
+                {group.subGroups.map(sg => sg.members.map(m => <MemberRow key={m.id} m={m} label={sg.name} onRemove={() => onRemove(m.id)} />))}
+              </div>
+            )}
+          </div>
+
+          {/* Available employees */}
+          <div>
+            <div style={{ fontSize:12, fontWeight:600, color:'#64748b', textTransform:'uppercase', letterSpacing:.5, marginBottom:8 }}>Add Members</div>
+            <select value={desigFilter} onChange={e => setDesigFilter(e.target.value)}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid #e2e8f0', fontSize:13, marginBottom:10, color:'#374151' }}>
+              <option value="">All Designations</option>
+              {designations.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            {available.length === 0 ? (
+              <div style={{ color:'#94a3b8', fontSize:13, padding:'6px 0' }}>No employees to add{desigFilter ? ' for this designation' : ''}</div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:4, maxHeight:220, overflowY:'auto' }}>
+                {available.map(u => (
+                  <div key={u.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 10px', borderRadius:8, background:'#f8fafc', border:'1px solid #e2e8f0' }}>
+                    <div style={{ width:30, height:30, borderRadius:'50%', background:'#e0e7ff', color:'#4f46e5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, flexShrink:0 }}>
+                      {u.avatar || u.name.slice(0,2).toUpperCase()}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontWeight:600, fontSize:13, color:'#1e293b' }}>{u.name}</div>
+                      <div style={{ fontSize:11, color:'#94a3b8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.designation || u.dept}</div>
+                    </div>
+                    {group.subGroups.length > 0 && (
+                      <select value={pickSg[u.id] ?? ''} onChange={e => setPickSg(p => ({ ...p, [u.id]: e.target.value }))}
+                        style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #e2e8f0', fontSize:12, color:'#374151' }}>
+                        <option value="">Direct</option>
+                        {group.subGroups.map(sg => <option key={sg.id} value={sg.id}>{sg.name}</option>)}
+                      </select>
+                    )}
+                    <button onClick={() => onAssign(u.id, group.id, pickSg[u.id] ? Number(pickSg[u.id]) : null)}
+                      style={{ padding:'5px 12px', borderRadius:7, border:'none', background:'#7c3aed', color:'#fff', fontWeight:600, fontSize:12, cursor:'pointer', flexShrink:0 }}>
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MemberRow({ m, label, onRemove }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', borderRadius:8, background:'#faf5ff', border:'1px solid #e9d5ff' }}>
+      <div style={{ width:28, height:28, borderRadius:'50%', background:'#7c3aed22', color:'#7c3aed', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0 }}>
+        {m.avatar || m.name.slice(0,2).toUpperCase()}
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <span style={{ fontWeight:600, fontSize:13, color:'#1e293b' }}>{m.name}</span>
+        {m.designation && <span style={{ marginLeft:6, fontSize:11, color:'#94a3b8' }}>{m.designation}</span>}
+      </div>
+      <span style={{ padding:'2px 8px', borderRadius:20, background:'#ede9fe', color:'#7c3aed', fontSize:11, fontWeight:600 }}>{label}</span>
+      <button onClick={onRemove} title="Remove from group" style={{ border:'none', background:'none', cursor:'pointer', color:'#dc2626', padding:2 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+      </button>
     </div>
   )
 }

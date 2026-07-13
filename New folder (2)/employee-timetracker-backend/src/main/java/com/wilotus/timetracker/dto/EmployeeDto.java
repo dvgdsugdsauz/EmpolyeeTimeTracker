@@ -15,4 +15,6 @@ public class EmployeeDto {
     private String avatar;
     private boolean active;
     private boolean timesheetAccess;
+    private Long groupId;
+    private Long subGroupId;
 }
