@@ -35,6 +35,138 @@ const localNow = () => {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/* ── SubTask Modal ─────────────────────────────────────── */
+function SubTaskModal({ parentTask, existingSubTask, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    description:          existingSubTask?.description          || '',
+    actualStartDateTime:  existingSubTask?.actualStartDateTime  || '',
+    actualEndDateTime:    existingSubTask?.actualEndDateTime     || '',
+    remarks:              existingSubTask?.remarks              || '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr]       = useState('')
+  const backdropRef = useRef()
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  async function handleSave() {
+    setSaving(true); setErr('')
+    try {
+      let result
+      if (existingSubTask) {
+        result = await api.updateSubTask(existingSubTask.id, form)
+      } else {
+        result = await api.createSubTask({ ...form, parentTaskId: parentTask.taskId })
+      }
+      onSaved(result, !!existingSubTask)
+    } catch (e) {
+      setErr(e.message || 'Save failed')
+      setSaving(false)
+    }
+  }
+
+  const title = existingSubTask ? existingSubTask.subTaskId : `New subtask of ${parentTask.taskId}`
+
+  return (
+    <div
+      ref={backdropRef}
+      onClick={e => { if (e.target === backdropRef.current) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1100,
+        background: 'rgba(15,23,42,.5)', backdropFilter: 'blur(2px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div style={{
+        background: '#fff', borderRadius: 16, width: 500,
+        boxShadow: '0 20px 60px rgba(0,0,0,.22)', overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 22px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc',
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: '#7c3aed' }}>⊕ Sub Task</span>
+              <span style={{ fontWeight: 700, fontSize: 13, color: '#6366f1' }}>{title}</span>
+            </div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+              {parentTask.description?.slice(0, 60)}{(parentTask.description?.length || 0) > 60 ? '…' : ''}
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: '#e2e8f0', border: 'none', borderRadius: 8,
+            width: 32, height: 32, cursor: 'pointer', color: '#64748b',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Description</label>
+            <textarea
+              value={form.description}
+              onChange={e => set('description', e.target.value)}
+              rows={3} placeholder="Describe this subtask…"
+              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Actual Start</label>
+              <DateTimePicker
+                value={form.actualStartDateTime}
+                onChange={v => set('actualStartDateTime', v)}
+                placeholder="Select start…"
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Actual End</label>
+              <DateTimePicker
+                value={form.actualEndDateTime}
+                onChange={v => set('actualEndDateTime', v)}
+                placeholder="Select end…"
+              />
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Remarks</label>
+            <textarea
+              value={form.remarks}
+              onChange={e => set('remarks', e.target.value)}
+              rows={2} placeholder="Add remarks…"
+              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+            />
+          </div>
+          {err && (
+            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fef2f2', color: '#dc2626', fontSize: 13 }}>{err}</div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 22px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{
+            padding: '9px 18px', borderRadius: 9, cursor: 'pointer',
+            background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: 13,
+          }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{
+            padding: '9px 22px', borderRadius: 9, cursor: 'pointer', border: 'none',
+            background: '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13,
+            boxShadow: '0 2px 8px rgba(124,58,237,.3)', opacity: saving ? .7 : 1,
+          }}>{saving ? 'Saving…' : existingSubTask ? 'Update' : 'Create Subtask'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Main Task Modal ───────────────────────────────────── */
 function TaskModal({ task, onClose, onSaved }) {
   const [form, setForm] = useState({
     actualStartDateTime: task.actualStartDateTime || '',
@@ -86,8 +218,7 @@ function TaskModal({ task, onClose, onSaved }) {
               <span style={{ fontWeight: 700, fontSize: 15, color: '#6366f1', flexShrink: 0 }}>{task.taskId}</span>
               <span style={{
                 padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
-                flexShrink: 0,
+                background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, flexShrink: 0,
               }}>{status}</span>
               {task.module && (
                 <span style={{ fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -142,9 +273,7 @@ function TaskModal({ task, onClose, onSaved }) {
             />
           </div>
           {err && (
-            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fef2f2', color: '#dc2626', fontSize: 13 }}>
-              {err}
-            </div>
+            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fef2f2', color: '#dc2626', fontSize: 13 }}>{err}</div>
           )}
         </div>
 
@@ -152,101 +281,45 @@ function TaskModal({ task, onClose, onSaved }) {
         <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: 8 }}>
           <button onClick={onClose} style={{
             padding: '10px 16px', borderRadius: 9, cursor: 'pointer',
-            background: '#f1f5f9', border: '1px solid #e2e8f0',
-            color: '#64748b', fontWeight: 600, fontSize: 13,
+            background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: 13,
           }}>Cancel</button>
 
           <button onClick={() => callApi({})} disabled={saving} style={{
             padding: '10px 18px', borderRadius: 9, cursor: 'pointer',
-            background: '#f8fafc', border: '1px solid #e2e8f0',
-            color: '#475569', fontWeight: 600, fontSize: 13, opacity: saving ? .7 : 1,
+            background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', fontWeight: 600, fontSize: 13, opacity: saving ? .7 : 1,
           }}>Save</button>
 
-          {/* Pending → Start */}
           {status === 'Pending' && (
-            <button
-              onClick={() => callApi({ status: 'In Progress', actualStartDateTime: form.actualStartDateTime || localNow() })}
-              disabled={saving}
-              style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: '10px 0', borderRadius: 9, border: 'none', cursor: 'pointer',
-                background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 14,
-                boxShadow: '0 2px 8px rgba(99,102,241,.3)', opacity: saving ? .7 : 1,
-              }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
+            <button onClick={() => callApi({ status: 'In Progress', actualStartDateTime: form.actualStartDateTime || localNow() })} disabled={saving}
+              style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 0', borderRadius:9, border:'none', cursor:'pointer', background:'#6366f1', color:'#fff', fontWeight:700, fontSize:14, boxShadow:'0 2px 8px rgba(99,102,241,.3)', opacity:saving?.7:1 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               Start Task
             </button>
           )}
-
-          {/* Paused → Resume */}
           {status === 'Paused' && (
-            <button
-              onClick={() => callApi({ status: 'In Progress', actualEndDateTime: '' })}
-              disabled={saving}
-              style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: '10px 0', borderRadius: 9, border: 'none', cursor: 'pointer',
-                background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 14,
-                boxShadow: '0 2px 8px rgba(99,102,241,.3)', opacity: saving ? .7 : 1,
-              }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
+            <button onClick={() => callApi({ status: 'In Progress', actualEndDateTime: '' })} disabled={saving}
+              style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 0', borderRadius:9, border:'none', cursor:'pointer', background:'#6366f1', color:'#fff', fontWeight:700, fontSize:14, boxShadow:'0 2px 8px rgba(99,102,241,.3)', opacity:saving?.7:1 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               Resume
             </button>
           )}
-
-          {/* In Progress → Pause + Complete */}
           {status === 'In Progress' && (
             <>
-              <button
-                onClick={() => callApi({ status: 'Paused', actualEndDateTime: localNow() })}
-                disabled={saving}
-                style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  padding: '10px 0', borderRadius: 9, cursor: 'pointer',
-                  background: '#fefce8', border: '1px solid #fde68a',
-                  color: '#ca8a04', fontWeight: 700, fontSize: 13, opacity: saving ? .7 : 1,
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
-                </svg>
+              <button onClick={() => callApi({ status: 'Paused', actualEndDateTime: localNow() })} disabled={saving}
+                style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px 0', borderRadius:9, cursor:'pointer', background:'#fefce8', border:'1px solid #fde68a', color:'#ca8a04', fontWeight:700, fontSize:13, opacity:saving?.7:1 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
                 Pause
               </button>
-              <button
-                onClick={() => callApi({ status: 'Completed', actualEndDateTime: form.actualEndDateTime || localNow() })}
-                disabled={saving}
-                style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  padding: '10px 0', borderRadius: 9, border: 'none', cursor: 'pointer',
-                  background: '#16a34a', color: '#fff', fontWeight: 700, fontSize: 14,
-                  boxShadow: '0 2px 8px rgba(22,163,74,.3)', opacity: saving ? .7 : 1,
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
+              <button onClick={() => callApi({ status: 'Completed', actualEndDateTime: form.actualEndDateTime || localNow() })} disabled={saving}
+                style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px 0', borderRadius:9, border:'none', cursor:'pointer', background:'#16a34a', color:'#fff', fontWeight:700, fontSize:14, boxShadow:'0 2px 8px rgba(22,163,74,.3)', opacity:saving?.7:1 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 Complete
               </button>
             </>
           )}
-
-          {/* Completed */}
           {status === 'Completed' && (
-            <div style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '10px 0', borderRadius: 9,
-              background: '#f0fdf4', color: '#16a34a', fontWeight: 600, fontSize: 13,
-              border: '1px solid #bbf7d0',
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
+            <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px 0', borderRadius:9, background:'#f0fdf4', color:'#16a34a', fontWeight:600, fontSize:13, border:'1px solid #bbf7d0' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
               Completed
             </div>
           )}
@@ -257,14 +330,25 @@ function TaskModal({ task, onClose, onSaved }) {
 }
 
 export default function MyTasksPage() {
-  const [tasks, setTasks]     = useState([])
-  const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(null)
-  const [saveMsg, setSaveMsg] = useState('')
+  const [tasks, setTasks]           = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [editing, setEditing]       = useState(null)
+  const [saveMsg, setSaveMsg]       = useState('')
+  const [subTaskMap, setSubTaskMap] = useState({})   // taskId → SubTask[]
+  const [expanded, setExpanded]     = useState({})   // taskId → bool
+  const [subModal, setSubModal]     = useState(null) // { parentTask, existingSubTask? }
 
   useEffect(() => {
-    api.fetchMyTasks()
-      .then(setTasks)
+    Promise.all([api.fetchMyTasks(), api.fetchMySubTasks()])
+      .then(([ts, sts]) => {
+        setTasks(ts)
+        const map = {}
+        sts.forEach(s => {
+          if (!map[s.parentTaskId]) map[s.parentTaskId] = []
+          map[s.parentTaskId].push(s)
+        })
+        setSubTaskMap(map)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -276,11 +360,39 @@ export default function MyTasksPage() {
     setTimeout(() => setSaveMsg(''), 2500)
   }
 
+  function handleSubTaskSaved(result, isUpdate) {
+    setSubTaskMap(prev => {
+      const pid = result.parentTaskId
+      const existing = prev[pid] || []
+      const list = isUpdate
+        ? existing.map(s => s.id === result.id ? result : s)
+        : [...existing, result]
+      return { ...prev, [pid]: list }
+    })
+    setExpanded(prev => ({ ...prev, [result.parentTaskId]: true }))
+    setSubModal(null)
+    setSaveMsg(isUpdate ? 'Subtask updated' : 'Subtask created')
+    setTimeout(() => setSaveMsg(''), 2500)
+  }
+
+  async function handleSubTaskDelete(subTask) {
+    if (!window.confirm(`Delete subtask ${subTask.subTaskId}?`)) return
+    try {
+      await api.deleteSubTask(subTask.id)
+      setSubTaskMap(prev => {
+        const list = (prev[subTask.parentTaskId] || []).filter(s => s.id !== subTask.id)
+        return { ...prev, [subTask.parentTaskId]: list }
+      })
+    } catch (e) { alert(e.message || 'Delete failed') }
+  }
+
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 60, color: '#94a3b8', fontSize: 14 }}>
       Loading tasks…
     </div>
   )
+
+  const totalSubTasks = Object.values(subTaskMap).reduce((s, a) => s + a.length, 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -288,15 +400,16 @@ export default function MyTasksPage() {
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 14, gap: 10 }}>
         {saveMsg && (
-          <span style={{
-            fontSize: 13, padding: '5px 12px', borderRadius: 6,
-            background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0',
-          }}>{saveMsg}</span>
+          <span style={{ fontSize: 13, padding: '5px 12px', borderRadius: 6, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' }}>{saveMsg}</span>
         )}
-        <span style={{
-          padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-          background: '#eef2ff', color: '#6366f1', border: '1px solid #c7d2fe',
-        }}>{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>
+        {totalSubTasks > 0 && (
+          <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>
+            {totalSubTasks} subtask{totalSubTasks !== 1 ? 's' : ''}
+          </span>
+        )}
+        <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: '#eef2ff', color: '#6366f1', border: '1px solid #c7d2fe' }}>
+          {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
       {/* Table */}
@@ -322,77 +435,106 @@ export default function MyTasksPage() {
               </tr>
             )}
             {tasks.map((t, i) => {
-              const pc     = PRIORITY_COLOR[t.priority] || {}
-              const status = t.status || 'Pending'
-              const sc     = STATUS_COLOR[status] || STATUS_COLOR.Pending
+              const pc       = PRIORITY_COLOR[t.priority] || {}
+              const status   = t.status || 'Pending'
+              const sc       = STATUS_COLOR[status] || STATUS_COLOR.Pending
+              const subs     = subTaskMap[t.taskId] || []
+              const isExpand = expanded[t.taskId]
+              const rowBg    = i % 2 === 0 ? '#fff' : '#fafafa'
               return (
-                <tr
-                  key={t.taskId + i}
-                  onClick={() => setEditing(t)}
-                  style={{
-                    background: i % 2 === 0 ? '#fff' : '#fafafa',
-                    cursor: 'pointer', transition: 'background .1s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafafa' }}
-                >
-                  <td style={tdStyle}>
-                    <span style={{ fontWeight: 700, color: '#6366f1', whiteSpace: 'nowrap' }}>{t.taskId}</span>
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'left', minWidth: 200, maxWidth: 280 }}>
-                    <span style={{
-                      display: '-webkit-box', WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151',
-                    }}>{t.description}</span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedByName || t.assignedBy || '—'}</span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.plannedDate || '—'}</span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span>
-                  </td>
-                  <td style={tdStyle}>
-                    {t.priority ? (
-                      <span style={{
-                        padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                        background: pc.bg, color: pc.color, border: `1px solid ${pc.border}`,
-                      }}>{t.priority}</span>
-                    ) : <span style={{ color: '#94a3b8' }}>—</span>}
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ color: t.actualStartDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>
-                      {t.actualStartDateTime ? t.actualStartDateTime.replace('T', ' ') : '—'}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ color: t.actualEndDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>
-                      {t.actualEndDateTime ? t.actualEndDateTime.replace('T', ' ') : '—'}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span
-                      className={status === 'In Progress' ? 'task-in-progress' : ''}
-                      style={{
-                        padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                        background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
-                        whiteSpace: 'nowrap', display: 'inline-block',
-                      }}
-                    >{status}</span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{ color: '#374151', whiteSpace: 'nowrap', fontWeight: 500 }}>{calcWorkedHours(t)}</span>
-                  </td>
-                  <td style={{ ...tdStyle, maxWidth: 180, textAlign: 'left' }}>
-                    <span style={{
-                      display: '-webkit-box', WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                      color: t.remarks ? '#374151' : '#94a3b8', fontSize: 12,
-                    }}>{t.remarks || '—'}</span>
-                  </td>
-                </tr>
+                <>
+                  {/* ── Main task row ── */}
+                  <tr
+                    key={t.taskId}
+                    onClick={() => setEditing(t)}
+                    style={{ background: rowBg, cursor: 'pointer', transition: 'background .1s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
+                  >
+                    {/* Task ID + subtask toggle + add button */}
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                        <span style={{ fontWeight: 700, color: '#6366f1', whiteSpace: 'nowrap' }}>{t.taskId}</span>
+                        {/* Add subtask button */}
+                        <button
+                          title="Add subtask"
+                          onClick={e => { e.stopPropagation(); setSubModal({ parentTask: t }) }}
+                          style={{
+                            border: 'none', borderRadius: 5, padding: '2px 5px',
+                            background: '#f5f3ff', color: '#7c3aed', cursor: 'pointer',
+                            fontSize: 14, fontWeight: 700, lineHeight: 1,
+                          }}
+                        >+</button>
+                        {/* Expand/collapse if subtasks exist */}
+                        {subs.length > 0 && (
+                          <button
+                            title={isExpand ? 'Collapse subtasks' : `${subs.length} subtask(s)`}
+                            onClick={e => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [t.taskId]: !prev[t.taskId] })) }}
+                            style={{
+                              border: 'none', borderRadius: 5, padding: '2px 6px',
+                              background: '#ede9fe', color: '#7c3aed', cursor: 'pointer',
+                              fontSize: 11, fontWeight: 700,
+                            }}
+                          >{isExpand ? '▲' : `▼ ${subs.length}`}</button>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'left', minWidth: 200, maxWidth: 280 }}>
+                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151' }}>{t.description}</span>
+                    </td>
+                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedByName || t.assignedBy || '—'}</span></td>
+                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.plannedDate || '—'}</span></td>
+                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span></td>
+                    <td style={tdStyle}>
+                      {t.priority ? (
+                        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: pc.bg, color: pc.color, border: `1px solid ${pc.border}` }}>{t.priority}</span>
+                      ) : <span style={{ color: '#94a3b8' }}>—</span>}
+                    </td>
+                    <td style={tdStyle}><span style={{ color: t.actualStartDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>{t.actualStartDateTime ? t.actualStartDateTime.replace('T', ' ') : '—'}</span></td>
+                    <td style={tdStyle}><span style={{ color: t.actualEndDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>{t.actualEndDateTime ? t.actualEndDateTime.replace('T', ' ') : '—'}</span></td>
+                    <td style={tdStyle}>
+                      <span className={status === 'In Progress' ? 'task-in-progress' : ''} style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, whiteSpace: 'nowrap', display: 'inline-block' }}>{status}</span>
+                    </td>
+                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap', fontWeight: 500 }}>{calcWorkedHours(t)}</span></td>
+                    <td style={{ ...tdStyle, maxWidth: 180, textAlign: 'left' }}>
+                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: t.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{t.remarks || '—'}</span>
+                    </td>
+                  </tr>
+
+                  {/* ── Subtask rows (expanded) ── */}
+                  {isExpand && subs.map(st => (
+                    <tr key={st.subTaskId} style={{ background: '#faf5ff' }}>
+                      <td style={{ ...tdStyle, paddingLeft: 20 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center' }}>
+                          <span style={{ color: '#94a3b8', fontSize: 11 }}>└</span>
+                          <span style={{ fontWeight: 700, color: '#7c3aed', fontSize: 12, whiteSpace: 'nowrap' }}>{st.subTaskId}</span>
+                          <button
+                            title="Edit subtask"
+                            onClick={e => { e.stopPropagation(); setSubModal({ parentTask: t, existingSubTask: st }) }}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6366f1', fontSize: 13, padding: '1px 3px' }}
+                          >✎</button>
+                          <button
+                            title="Delete subtask"
+                            onClick={e => { e.stopPropagation(); handleSubTaskDelete(st) }}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 13, padding: '1px 3px' }}
+                          >✕</button>
+                        </div>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'left', minWidth: 200, maxWidth: 280 }}>
+                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#6b21a8', fontSize: 12 }}>{st.description || '—'}</span>
+                      </td>
+                      <td colSpan={3} style={{ ...tdStyle, color: '#94a3b8', fontSize: 11 }}>— subtask —</td>
+                      <td style={tdStyle}></td>
+                      <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 12 }}>{st.actualStartDateTime ? st.actualStartDateTime.replace('T', ' ') : '—'}</span></td>
+                      <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 12 }}>{st.actualEndDateTime ? st.actualEndDateTime.replace('T', ' ') : '—'}</span></td>
+                      <td style={tdStyle}></td>
+                      <td style={tdStyle}></td>
+                      <td style={{ ...tdStyle, maxWidth: 180, textAlign: 'left' }}>
+                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: st.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{st.remarks || '—'}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </>
               )
             })}
           </tbody>
@@ -400,10 +542,14 @@ export default function MyTasksPage() {
       </div>
 
       {editing && (
-        <TaskModal
-          task={editing}
-          onClose={() => setEditing(null)}
-          onSaved={handleSaved}
+        <TaskModal task={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />
+      )}
+      {subModal && (
+        <SubTaskModal
+          parentTask={subModal.parentTask}
+          existingSubTask={subModal.existingSubTask}
+          onClose={() => setSubModal(null)}
+          onSaved={handleSubTaskSaved}
         />
       )}
     </div>

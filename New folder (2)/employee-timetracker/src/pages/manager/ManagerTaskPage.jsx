@@ -325,6 +325,8 @@ function calcWorkedHours(t) {
 export default function ManagerTaskPage() {
   const [activeTab, setActiveTab]   = useState('unassigned')
   const [tasks, setTasks]           = useState([])
+  const [subTaskMap, setSubTaskMap] = useState({})   // parentTaskId → SubTask[]
+  const [expandedSubs, setExpandedSubs] = useState({})
   const [checkedIds, setCheckedIds] = useState(new Set())
   const [filters, setFilters]       = useState({ module: '', type: '', priority: '', status: '' })
   const [employees, setEmployees]   = useState([])
@@ -335,7 +337,15 @@ export default function ManagerTaskPage() {
 
   useEffect(() => {
     api.fetchEmployees().then(setEmployees).catch(() => {})
-    api.fetchAllTasks().then(setTasks).catch(() => {})
+    Promise.all([api.fetchAllTasks(), api.fetchMySubTasks ? api.fetchMySubTasks() : Promise.resolve([])])
+      .then(([ts, sts]) => {
+        setTasks(ts)
+        // fetchMySubTasks only returns employee's own; for manager use by-task per assigned task
+        // We'll load them lazily when expanding
+      })
+      .catch(() => {
+        api.fetchAllTasks().then(setTasks).catch(() => {})
+      })
   }, [])
 
   const handleImport = (e) => {
@@ -401,6 +411,18 @@ export default function ManagerTaskPage() {
     } else {
       const next = new Set(checkedIds); visible.forEach(t => next.add(t.taskId)); setCheckedIds(next)
     }
+  }
+
+  async function toggleSubExpand(taskId) {
+    if (!expandedSubs[taskId]) {
+      if (!subTaskMap[taskId]) {
+        try {
+          const subs = await api.fetchSubTasksByParent(taskId)
+          setSubTaskMap(prev => ({ ...prev, [taskId]: subs }))
+        } catch { /* ignore */ }
+      }
+    }
+    setExpandedSubs(prev => ({ ...prev, [taskId]: !prev[taskId] }))
   }
 
   const toggleOne = (taskId) => {
@@ -586,44 +608,87 @@ export default function ManagerTaskPage() {
                 </tr>
               )}
               {visible.map((t, i) => {
-                const pc     = PRIORITY_COLOR[t.priority] || {}
-                const status = t.status || 'Pending'
-                const sc     = STATUS_COLOR[status] || STATUS_COLOR.Pending
+                const pc       = PRIORITY_COLOR[t.priority] || {}
+                const status   = t.status || 'Pending'
+                const sc       = STATUS_COLOR[status] || STATUS_COLOR.Pending
+                const subs     = subTaskMap[t.taskId] || []
+                const isExpand = expandedSubs[t.taskId]
+                const rowBg    = i % 2 === 0 ? '#fff' : '#fafafa'
                 return (
-                  <tr key={t.taskId + i}
-                    style={{ background: i % 2 === 0 ? '#fff' : '#fafafa', transition: 'background .1s' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafafa' }}
-                  >
-                    <td style={tdStyle}><span style={{ fontWeight: 700, color: '#6366f1', whiteSpace: 'nowrap' }}>{t.taskId}</span></td>
-                    <td style={{ ...tdStyle, textAlign: 'left', minWidth: 200, maxWidth: 300 }}>
-                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151' }}>{t.description}</span>
-                    </td>
-                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedToName || t.assignedTo || '—'}</span></td>
-                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.plannedDate || '—'}</span></td>
-                    <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span></td>
-                    <td style={tdStyle}>
-                      {t.priority ? (
-                        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: pc.bg, color: pc.color, border: `1px solid ${pc.border}` }}>{t.priority}</span>
-                      ) : <span style={{ color: '#94a3b8' }}>—</span>}
-                    </td>
-                    <td style={tdStyle}><span style={{ color: t.actualStartDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>{t.actualStartDateTime ? t.actualStartDateTime.replace('T', ' ') : '—'}</span></td>
-                    <td style={tdStyle}><span style={{ color: t.actualEndDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>{t.actualEndDateTime ? t.actualEndDateTime.replace('T', ' ') : '—'}</span></td>
-                    <td style={tdStyle}>
-                      <span
-                        className={status === 'In Progress' ? 'task-in-progress' : ''}
-                        style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, whiteSpace: 'nowrap', display: 'inline-block' }}
-                      >{status}</span>
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{ color: '#374151', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 12 }}>
-                        {calcWorkedHours(t)}
-                      </span>
-                    </td>
-                    <td style={{ ...tdStyle, maxWidth: 200, textAlign: 'left' }}>
-                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: t.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{t.remarks || '—'}</span>
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={t.taskId + i}
+                      style={{ background: rowBg, transition: 'background .1s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
+                    >
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center' }}>
+                          <span style={{ fontWeight: 700, color: '#6366f1', whiteSpace: 'nowrap' }}>{t.taskId}</span>
+                          <button
+                            title={isExpand ? 'Collapse subtasks' : 'View subtasks'}
+                            onClick={e => { e.stopPropagation(); toggleSubExpand(t.taskId) }}
+                            style={{
+                              border: 'none', borderRadius: 5, padding: '2px 6px',
+                              background: isExpand ? '#ede9fe' : '#f5f3ff',
+                              color: '#7c3aed', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                            }}
+                          >{isExpand ? '▲' : (subs.length > 0 ? `▼ ${subs.length}` : '▼')}</button>
+                        </div>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'left', minWidth: 200, maxWidth: 300 }}>
+                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151' }}>{t.description}</span>
+                      </td>
+                      <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedToName || t.assignedTo || '—'}</span></td>
+                      <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.plannedDate || '—'}</span></td>
+                      <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span></td>
+                      <td style={tdStyle}>
+                        {t.priority ? (
+                          <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: pc.bg, color: pc.color, border: `1px solid ${pc.border}` }}>{t.priority}</span>
+                        ) : <span style={{ color: '#94a3b8' }}>—</span>}
+                      </td>
+                      <td style={tdStyle}><span style={{ color: t.actualStartDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>{t.actualStartDateTime ? t.actualStartDateTime.replace('T', ' ') : '—'}</span></td>
+                      <td style={tdStyle}><span style={{ color: t.actualEndDateTime ? '#374151' : '#94a3b8', whiteSpace: 'nowrap', fontSize: 12 }}>{t.actualEndDateTime ? t.actualEndDateTime.replace('T', ' ') : '—'}</span></td>
+                      <td style={tdStyle}>
+                        <span className={status === 'In Progress' ? 'task-in-progress' : ''}
+                          style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, whiteSpace: 'nowrap', display: 'inline-block' }}
+                        >{status}</span>
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{ color: '#374151', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 12 }}>{calcWorkedHours(t)}</span>
+                      </td>
+                      <td style={{ ...tdStyle, maxWidth: 200, textAlign: 'left' }}>
+                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: t.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{t.remarks || '—'}</span>
+                      </td>
+                    </tr>
+                    {/* Subtask rows */}
+                    {isExpand && subs.length === 0 && (
+                      <tr key={t.taskId + '-nosubs'} style={{ background: '#faf5ff' }}>
+                        <td colSpan={11} style={{ ...tdStyle, color: '#c4b5fd', fontSize: 12, fontStyle: 'italic' }}>No subtasks created yet</td>
+                      </tr>
+                    )}
+                    {isExpand && subs.map(st => (
+                      <tr key={st.subTaskId} style={{ background: '#faf5ff' }}>
+                        <td style={{ ...tdStyle, paddingLeft: 20 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center' }}>
+                            <span style={{ color: '#c4b5fd', fontSize: 11 }}>└</span>
+                            <span style={{ fontWeight: 700, color: '#7c3aed', fontSize: 12, whiteSpace: 'nowrap' }}>{st.subTaskId}</span>
+                          </div>
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: 'left', minWidth: 200, maxWidth: 300 }}>
+                          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#6b21a8', fontSize: 12 }}>{st.description || '—'}</span>
+                        </td>
+                        <td style={{ ...tdStyle, fontSize: 11, color: '#94a3b8' }}>{st.employeeId}</td>
+                        <td colSpan={3} style={{ ...tdStyle, color: '#94a3b8', fontSize: 11 }}>— subtask —</td>
+                        <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 12 }}>{st.actualStartDateTime ? st.actualStartDateTime.replace('T',' ') : '—'}</span></td>
+                        <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap', fontSize: 12 }}>{st.actualEndDateTime ? st.actualEndDateTime.replace('T',' ') : '—'}</span></td>
+                        <td style={tdStyle}></td>
+                        <td style={tdStyle}></td>
+                        <td style={{ ...tdStyle, maxWidth: 200, textAlign: 'left' }}>
+                          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: st.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{st.remarks || '—'}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
                 )
               })}
             </tbody>

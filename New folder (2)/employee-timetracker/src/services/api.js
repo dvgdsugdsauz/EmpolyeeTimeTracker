@@ -339,6 +339,22 @@ export function updateMyTask(taskId, dto) {
   })
 }
 
+export function fetchSubTasksByParent(parentTaskId) {
+  return request(`/api/subtasks/by-task/${encodeURIComponent(parentTaskId)}`)
+}
+export function fetchMySubTasks() {
+  return request('/api/subtasks/my')
+}
+export function createSubTask(dto) {
+  return request('/api/subtasks', { method: 'POST', body: JSON.stringify(dto) })
+}
+export function updateSubTask(id, dto) {
+  return request(`/api/subtasks/${id}`, { method: 'PUT', body: JSON.stringify(dto) })
+}
+export function deleteSubTask(id) {
+  return request(`/api/subtasks/${id}`, { method: 'DELETE' })
+}
+
 export function fetchTimesheetManagers() {
   return request('/api/timesheets/managers')
 }

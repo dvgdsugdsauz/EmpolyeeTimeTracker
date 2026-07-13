@@ -387,6 +387,7 @@ export default function TimesheetPage({ user }) {
   const [selected, setSelected] = useState(new Set())
   const [modSearch, setModSearch] = useState('')
   const [myTasks, setMyTasks]     = useState([])
+  const [mySubTasks, setMySubTasks] = useState([])
   const modRef    = useRef(null)
   const mgrRef    = useRef(null)
   const taskRef   = useRef(null)
@@ -461,10 +462,10 @@ export default function TimesheetPage({ user }) {
   async function loadAll() {
     setLoading(true)
     try {
-      const [ts, mods, mgrs, tasks] = await Promise.all([
-        api.fetchMyTimesheets(), api.fetchTimesheetModules(), api.fetchTimesheetManagers(), api.fetchMyTasks(),
+      const [ts, mods, mgrs, tasks, sts] = await Promise.all([
+        api.fetchMyTimesheets(), api.fetchTimesheetModules(), api.fetchTimesheetManagers(), api.fetchMyTasks(), api.fetchMySubTasks(),
       ])
-      setTimesheets(ts); setModules(mods); setManagers(mgrs); setMyTasks(tasks)
+      setTimesheets(ts); setModules(mods); setManagers(mgrs); setMyTasks(tasks); setMySubTasks(sts)
 
       // Fetch attendance for all months covered by timesheets → build date→minutes map
       const monthKeys = [...new Set(ts.map(t => {
@@ -886,41 +887,75 @@ export default function TimesheetPage({ user }) {
                           borderRadius: 7, fontSize: 13, boxSizing: 'border-box', outline: 'none' }}
                       />
                     </div>
-                    <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                    <div style={{ maxHeight: 280, overflowY: 'auto' }}>
                       {myTasks.length === 0
                         ? <div style={{ padding: '14px 18px', color: '#9ca3af', fontSize: 13 }}>No tasks assigned to you</div>
                         : (() => {
-                            const filtered = myTasks.filter(t =>
-                              t.taskId.toLowerCase().includes(taskSearch.toLowerCase()) ||
-                              (t.description || '').toLowerCase().includes(taskSearch.toLowerCase())
-                            )
-                            if (filtered.length === 0)
-                              return <div style={{ padding: '14px 18px', color: '#9ca3af', fontSize: 13 }}>No matches found</div>
-                            return filtered.map(t => (
-                              <label key={t.taskId} style={{
-                                display: 'flex', alignItems: 'flex-start', gap: 12,
-                                padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
-                                background: form.selectedTaskIds.includes(t.taskId) ? '#f5f3ff' : '#fff',
-                              }}>
-                                <input type="checkbox"
-                                  checked={form.selectedTaskIds.includes(t.taskId)}
-                                  onChange={() => setForm(f => ({
-                                    ...f,
-                                    selectedTaskIds: f.selectedTaskIds.includes(t.taskId)
-                                      ? f.selectedTaskIds.filter(id => id !== t.taskId)
-                                      : [...f.selectedTaskIds, t.taskId],
-                                  }))}
-                                  onClick={e => e.stopPropagation()}
-                                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#6d28d9', marginTop: 3, flexShrink: 0 }}
-                                />
-                                <div>
-                                  <div style={{ fontSize: 13, fontWeight: 700, color: '#6d28d9' }}>{t.taskId}</div>
-                                  {t.description && (
-                                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>{t.description}</div>
-                                  )}
-                                </div>
-                              </label>
-                            ))
+                            const q = taskSearch.toLowerCase()
+                            const rows = []
+                            myTasks.forEach(t => {
+                              const taskMatch = t.taskId.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q)
+                              const subs = mySubTasks.filter(s => s.parentTaskId === t.taskId)
+                              const matchingSubs = subs.filter(s =>
+                                s.subTaskId.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q)
+                              )
+                              if (!taskMatch && matchingSubs.length === 0) return
+                              // Main task row
+                              rows.push(
+                                <label key={t.taskId} style={{
+                                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                                  padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                  background: form.selectedTaskIds.includes(t.taskId) ? '#f5f3ff' : '#fff',
+                                }}>
+                                  <input type="checkbox"
+                                    checked={form.selectedTaskIds.includes(t.taskId)}
+                                    onChange={() => setForm(f => ({
+                                      ...f,
+                                      selectedTaskIds: f.selectedTaskIds.includes(t.taskId)
+                                        ? f.selectedTaskIds.filter(id => id !== t.taskId)
+                                        : [...f.selectedTaskIds, t.taskId],
+                                    }))}
+                                    onClick={e => e.stopPropagation()}
+                                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#6d28d9', marginTop: 3, flexShrink: 0 }}
+                                  />
+                                  <div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#6d28d9' }}>{t.taskId}</div>
+                                    {t.description && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, lineHeight: 1.4 }}>{t.description}</div>}
+                                  </div>
+                                </label>
+                              )
+                              // Subtask rows (indented)
+                              const subsToShow = q ? matchingSubs : subs
+                              subsToShow.forEach(s => {
+                                rows.push(
+                                  <label key={s.subTaskId} style={{
+                                    display: 'flex', alignItems: 'flex-start', gap: 12,
+                                    padding: '7px 16px 7px 34px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                    background: form.selectedTaskIds.includes(s.subTaskId) ? '#faf5ff' : '#fdfcff',
+                                  }}>
+                                    <span style={{ color: '#c4b5fd', fontSize: 12, marginTop: 3, flexShrink: 0 }}>└</span>
+                                    <input type="checkbox"
+                                      checked={form.selectedTaskIds.includes(s.subTaskId)}
+                                      onChange={() => setForm(f => ({
+                                        ...f,
+                                        selectedTaskIds: f.selectedTaskIds.includes(s.subTaskId)
+                                          ? f.selectedTaskIds.filter(id => id !== s.subTaskId)
+                                          : [...f.selectedTaskIds, s.subTaskId],
+                                      }))}
+                                      onClick={e => e.stopPropagation()}
+                                      style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#7c3aed', marginTop: 3, flexShrink: 0 }}
+                                    />
+                                    <div>
+                                      <div style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed' }}>{s.subTaskId}</div>
+                                      {s.description && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1, lineHeight: 1.3 }}>{s.description}</div>}
+                                    </div>
+                                  </label>
+                                )
+                              })
+                            })
+                            return rows.length === 0
+                              ? <div style={{ padding: '14px 18px', color: '#9ca3af', fontSize: 13 }}>No matches found</div>
+                              : rows
                           })()
                       }
                     </div>
