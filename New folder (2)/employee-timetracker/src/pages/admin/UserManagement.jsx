@@ -267,7 +267,7 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
       )}
 
       {/* ══════════ USERS TAB ══════════ */}
-      {activeTab === 'users' && (
+      {activeTab === 'users' && (<>
       <div className="section-card">
         <div className="section-header">
           <div className="section-header-left">
@@ -529,7 +529,7 @@ export default function UserManagement({ users, onAddUser, onEditUser, onDeleteU
           </div>
         </div>
       )}
-      </div> {/* end users tab */}
+      </>
       )}
     </div>
   )
