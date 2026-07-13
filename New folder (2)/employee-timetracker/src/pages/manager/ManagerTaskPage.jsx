@@ -60,33 +60,47 @@ function FilterDropdown({ label, options, value, onChange }) {
 }
 
 function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned }) {
-  const [empSearch, setEmpSearch]   = useState('')
-  const [assignEmp, setAssignEmp]   = useState(null)
-  const [empDropOpen, setEmpDropOpen] = useState(false)
-  const [targetDate, setTargetDate]   = useState('')
-  const [plannedDate, setPlannedDate] = useState('')
-  const [assigning, setAssigning]   = useState(false)
-  const [msg, setMsg]               = useState('')
-  const empRef = useRef()
+  const [empSearch, setEmpSearch]       = useState('')
+  const [selectedEmps, setSelectedEmps] = useState(new Set())
+  const [targetDate, setTargetDate]     = useState('')
+  const [plannedDate, setPlannedDate]   = useState('')
+  const [assigning, setAssigning]       = useState(false)
+  const [msg, setMsg]                   = useState('')
+  const [groups, setGroups]             = useState([])
+  const [groupFilter, setGroupFilter]   = useState(null)
+  const [sgFilter, setSgFilter]         = useState(null)
   const backdropRef = useRef()
 
   useEffect(() => {
-    const h = (e) => { if (empRef.current && !empRef.current.contains(e.target)) setEmpDropOpen(false) }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
+    api.fetchGroups().then(setGroups).catch(() => {})
   }, [])
 
-  const filteredEmps = employees.filter(e =>
-    (e.name || '').toLowerCase().includes(empSearch.toLowerCase()) ||
-    (e.username || '').toLowerCase().includes(empSearch.toLowerCase())
-  )
+  const currentGroup = groups.find(g => g.id === groupFilter)
+
+  const filteredEmps = employees.filter(e => {
+    const matchSearch = !empSearch ||
+      (e.name || '').toLowerCase().includes(empSearch.toLowerCase()) ||
+      (e.username || '').toLowerCase().includes(empSearch.toLowerCase())
+    const matchGroup = !groupFilter || e.groupId === groupFilter
+    const matchSg    = !sgFilter    || e.subGroupId === sgFilter
+    return matchSearch && matchGroup && matchSg
+  })
+
+  const toggleEmp = (id) => setSelectedEmps(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
 
   const handleAssign = async () => {
-    if (!assignEmp) return
+    if (selectedEmps.size === 0) { setMsg('Select at least one employee'); return }
     setAssigning(true)
     try {
-      await api.assignTasksBulk([...checkedIds], assignEmp.id, targetDate, plannedDate)
-      onAssigned(assignEmp.name, selectedTasks.length)
+      for (const empId of selectedEmps) {
+        await api.assignTasksBulk([...checkedIds], empId, targetDate, plannedDate)
+      }
+      const names = employees.filter(e => selectedEmps.has(e.id)).map(e => e.name).join(', ')
+      onAssigned(names, selectedTasks.length)
     } catch {
       setMsg('Assignment failed')
       setTimeout(() => setMsg(''), 3000)
@@ -172,71 +186,100 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
           {/* Divider */}
           <div style={{ height: 1, background: '#e2e8f0', margin: '16px 0' }} />
 
-          {/* Employee Search */}
+          {/* Employee Section */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>Assign To Employee</div>
-            <div ref={empRef} style={{ position: 'relative' }}>
-              <input
-                type="text"
-                placeholder="Search employee..."
-                value={empSearch}
-                onChange={e => { setEmpSearch(e.target.value); setAssignEmp(null); setEmpDropOpen(true) }}
-                onFocus={() => setEmpDropOpen(true)}
-                autoFocus
-                style={{
-                  width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 13,
-                  background: '#f8fafc', border: '1px solid #e2e8f0',
-                  color: '#1e293b', outline: 'none', boxSizing: 'border-box',
-                }}
-              />
-              {empDropOpen && filteredEmps.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, marginTop: 4,
-                  background: '#fff', border: '1px solid #e2e8f0',
-                  borderRadius: 10, maxHeight: 180, overflowY: 'auto',
-                  boxShadow: '0 8px 24px rgba(0,0,0,.12)',
-                }}>
-                  {filteredEmps.map(emp => (
-                    <div
-                      key={emp.id}
-                      onClick={() => { setAssignEmp(emp); setEmpSearch(emp.name || emp.username); setEmpDropOpen(false) }}
-                      style={{
-                        padding: '9px 14px', cursor: 'pointer', fontSize: 13,
-                        background: assignEmp?.id === emp.id ? '#eef2ff' : '#fff',
-                        borderBottom: '1px solid #f1f5f9',
-                        display: 'flex', flexDirection: 'column', gap: 2,
-                      }}
-                      onMouseEnter={e => { if (assignEmp?.id !== emp.id) e.currentTarget.style.background = '#f8fafc' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = assignEmp?.id === emp.id ? '#eef2ff' : '#fff' }}
-                    >
-                      <span style={{ fontWeight: 600, color: '#1e293b' }}>{emp.name || emp.username}</span>
-                      <span style={{ fontSize: 11, color: '#94a3b8' }}>{emp.designation} · {emp.dept}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 10 }}>
+              Assign To Employee <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional — select multiple)</span>
             </div>
 
-            {assignEmp && (
-              <div style={{
-                marginTop: 8, display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 12px', borderRadius: 8, background: '#eef2ff',
-                border: '1px solid #c7d2fe', fontSize: 13,
-              }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-                <span style={{ fontWeight: 600, color: '#6366f1' }}>{assignEmp.name}</span>
-                <span style={{ fontSize: 11, color: '#8b5cf6', marginLeft: 'auto' }}>{assignEmp.designation}</span>
+            {/* Group filter chips */}
+            {groups.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                <button onClick={() => { setGroupFilter(null); setSgFilter(null) }} style={{
+                  padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                  background: !groupFilter ? '#6366f1' : '#f1f5f9', color: !groupFilter ? '#fff' : '#64748b',
+                }}>All</button>
+                {groups.map(g => (
+                  <button key={g.id} onClick={() => { setGroupFilter(g.id); setSgFilter(null) }} style={{
+                    padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                    background: groupFilter === g.id ? '#7c3aed' : '#f3e8ff', color: groupFilter === g.id ? '#fff' : '#7c3aed',
+                  }}>{g.name}</button>
+                ))}
+              </div>
+            )}
+
+            {/* Sub-group filter */}
+            {currentGroup?.subGroups?.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                <button onClick={() => setSgFilter(null)} style={{
+                  padding: '3px 10px', borderRadius: 20, border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                  background: !sgFilter ? '#7c3aed22' : 'none', color: '#7c3aed',
+                }}>All</button>
+                {currentGroup.subGroups.map(sg => (
+                  <button key={sg.id} onClick={() => setSgFilter(sg.id)} style={{
+                    padding: '3px 10px', borderRadius: 20, border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                    background: sgFilter === sg.id ? '#7c3aed22' : 'none', color: '#7c3aed',
+                  }}>{sg.name}</button>
+                ))}
+              </div>
+            )}
+
+            {/* Search */}
+            <input
+              type="text" placeholder="Search employee..." value={empSearch}
+              onChange={e => setEmpSearch(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, boxSizing: 'border-box',
+                background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', marginBottom: 8 }}
+            />
+
+            {/* Employee list with checkboxes */}
+            <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+              {filteredEmps.length === 0 ? (
+                <div style={{ padding: 14, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No employees found</div>
+              ) : filteredEmps.map(emp => {
+                const checked = selectedEmps.has(emp.id)
+                return (
+                  <div key={emp.id} onClick={() => toggleEmp(emp.id)} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px',
+                    cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                    background: checked ? '#eef2ff' : '#fff', transition: 'background .1s',
+                  }}
+                    onMouseEnter={e => { if (!checked) e.currentTarget.style.background = '#f8fafc' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = checked ? '#eef2ff' : '#fff' }}
+                  >
+                    <div style={{
+                      width: 18, height: 18, borderRadius: 5, border: `2px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
+                      background: checked ? '#6366f1' : '#fff', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {checked && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{emp.name || emp.username}</div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.designation} · {emp.dept}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Selected chips */}
+            {selectedEmps.size > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {employees.filter(e => selectedEmps.has(e.id)).map(e => (
+                  <span key={e.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+                    borderRadius: 20, background: '#eef2ff', color: '#6366f1', fontSize: 12, fontWeight: 600,
+                  }}>
+                    {e.name}
+                    <button onClick={() => toggleEmp(e.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#a5b4fc', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                  </span>
+                ))}
               </div>
             )}
 
             {msg && (
-              <div style={{
-                marginTop: 8, padding: '8px 12px', borderRadius: 8, fontSize: 13,
-                background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
-              }}>{msg}</div>
+              <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, fontSize: 13, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>{msg}</div>
             )}
           </div>
 
@@ -284,22 +327,25 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
           </button>
           <button
             onClick={handleAssign}
-            disabled={!assignEmp || assigning}
+            disabled={assigning}
             style={{
               flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               padding: '11px 0', borderRadius: 9, border: 'none',
-              cursor: assignEmp && !assigning ? 'pointer' : 'not-allowed',
-              background: assignEmp ? '#16a34a' : '#e2e8f0',
-              color: assignEmp ? '#fff' : '#94a3b8',
-              fontWeight: 700, fontSize: 14,
-              boxShadow: assignEmp ? '0 2px 8px rgba(22,163,74,.3)' : 'none',
+              cursor: !assigning ? 'pointer' : 'not-allowed',
+              background: selectedEmps.size > 0 ? '#16a34a' : '#6366f1',
+              color: '#fff', fontWeight: 700, fontSize: 14,
+              boxShadow: selectedEmps.size > 0 ? '0 2px 8px rgba(22,163,74,.3)' : '0 2px 8px rgba(99,102,241,.3)',
               opacity: assigning ? .7 : 1,
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
-            {assigning ? 'Assigning…' : `Assign ${checkedIds.size} Task${checkedIds.size > 1 ? 's' : ''}`}
+            {assigning ? 'Assigning…' :
+              selectedEmps.size > 0
+                ? `Assign ${checkedIds.size} Task${checkedIds.size > 1 ? 's' : ''} to ${selectedEmps.size} Employee${selectedEmps.size > 1 ? 's' : ''}`
+                : `Assign ${checkedIds.size} Task${checkedIds.size > 1 ? 's' : ''}`
+            }
           </button>
         </div>
       </div>
