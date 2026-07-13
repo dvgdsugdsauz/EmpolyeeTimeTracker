@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import * as api from '../../services/api'
-import { DateTimePicker } from '../../components/DatePicker'
+import { DatePicker, DateTimePicker } from '../../components/DatePicker'
 
 const PRIORITY_COLOR = {
   High:   { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
@@ -15,18 +15,23 @@ const STATUS_COLOR = {
 }
 
 function calcWorkedHours(t) {
-  if (!t.actualStartDateTime) return '—'
   const status = t.status || 'Pending'
-  const start = new Date(t.actualStartDateTime.replace(' ', 'T'))
-  const end = (status !== 'In Progress' && t.actualEndDateTime)
-    ? new Date(t.actualEndDateTime.replace(' ', 'T'))
-    : (status === 'In Progress' ? new Date() : null)
-  if (!end) return '—'
-  const mins = Math.round((end - start) / 60000)
-  if (mins <= 0) return '< 1m'
-  if (mins < 60) return `${mins}m`
-  const h = Math.floor(mins / 60), m = mins % 60
+  // workedMinutes = accumulated from past sessions; add current session if In Progress
+  let total = t.workedMinutes || 0
+  if (status === 'In Progress' && t.actualStartDateTime) {
+    const start = new Date(t.actualStartDateTime.replace(' ', 'T'))
+    const now   = new Date()
+    total += Math.round((now - start) / 60000)
+  }
+  if (total <= 0) return '—'
+  if (total < 60) return `${total}m`
+  const h = Math.floor(total / 60), m = total % 60
   return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
+function elapsedMinsSince(dateStr) {
+  if (!dateStr) return 0
+  return Math.max(0, Math.round((new Date() - new Date(dateStr.replace(' ', 'T'))) / 60000))
 }
 
 const localNow = () => {
@@ -83,8 +88,10 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
 /* ── SubTask Modal ─────────────────────────────────────── */
 function SubTaskModal({ parentTask, existingSubTask, onClose, onSaved }) {
   const [form, setForm] = useState({
-    description: existingSubTask?.description || '',
-    remarks:     existingSubTask?.remarks     || '',
+    description:         existingSubTask?.description         || '',
+    actualStartDateTime: existingSubTask?.actualStartDateTime || '',
+    actualEndDateTime:   existingSubTask?.actualEndDateTime   || '',
+    remarks:             existingSubTask?.remarks             || '',
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr]       = useState('')
@@ -159,6 +166,24 @@ function SubTaskModal({ parentTask, existingSubTask, onClose, onSaved }) {
               rows={3} placeholder="Describe this subtask…"
               style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
             />
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Start Date</label>
+              <DatePicker
+                value={form.actualStartDateTime}
+                onChange={v => set('actualStartDateTime', v)}
+                placeholder="Pick start date…"
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>End Date</label>
+              <DatePicker
+                value={form.actualEndDateTime}
+                onChange={v => set('actualEndDateTime', v)}
+                placeholder="Pick end date…"
+              />
+            </div>
           </div>
           <div>
             <label style={labelStyle}>Remarks</label>
@@ -322,7 +347,11 @@ function TaskModal({ task, onClose, onSaved }) {
             </button>
           )}
           {status === 'Paused' && (
-            <button onClick={() => callApi({ status: 'In Progress', actualEndDateTime: '' })} disabled={saving}
+            <button onClick={() => callApi({
+              status: 'In Progress',
+              actualStartDateTime: localNow(), // reset session start to now
+              actualEndDateTime: '',
+            })} disabled={saving}
               style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 0', borderRadius:9, border:'none', cursor:'pointer', background:'#6366f1', color:'#fff', fontWeight:700, fontSize:14, boxShadow:'0 2px 8px rgba(99,102,241,.3)', opacity:saving?.7:1 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               Resume
@@ -330,12 +359,20 @@ function TaskModal({ task, onClose, onSaved }) {
           )}
           {status === 'In Progress' && (
             <>
-              <button onClick={() => callApi({ status: 'Paused', actualEndDateTime: localNow() })} disabled={saving}
+              <button onClick={() => callApi({
+                status: 'Paused',
+                actualEndDateTime: localNow(),
+                workedMinutes: (task.workedMinutes || 0) + elapsedMinsSince(form.actualStartDateTime || task.actualStartDateTime),
+              })} disabled={saving}
                 style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px 0', borderRadius:9, cursor:'pointer', background:'#fefce8', border:'1px solid #fde68a', color:'#ca8a04', fontWeight:700, fontSize:13, opacity:saving?.7:1 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
                 Pause
               </button>
-              <button onClick={() => callApi({ status: 'Completed', actualEndDateTime: form.actualEndDateTime || localNow() })} disabled={saving}
+              <button onClick={() => callApi({
+                status: 'Completed',
+                actualEndDateTime: form.actualEndDateTime || localNow(),
+                workedMinutes: (task.workedMinutes || 0) + elapsedMinsSince(form.actualStartDateTime || task.actualStartDateTime),
+              })} disabled={saving}
                 style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px 0', borderRadius:9, border:'none', cursor:'pointer', background:'#16a34a', color:'#fff', fontWeight:700, fontSize:14, boxShadow:'0 2px 8px rgba(22,163,74,.3)', opacity:saving?.7:1 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 Complete
@@ -492,10 +529,14 @@ export default function MyTasksPage() {
                           title="Add subtask"
                           onClick={e => { e.stopPropagation(); setSubModal({ parentTask: t }) }}
                           style={{
-                            border: 'none', borderRadius: 5, padding: '2px 5px',
-                            background: '#f5f3ff', color: '#7c3aed', cursor: 'pointer',
-                            fontSize: 14, fontWeight: 700, lineHeight: 1,
+                            border: 'none', borderRadius: 6, padding: '3px 8px',
+                            background: 'linear-gradient(135deg,#7c3aed,#6366f1)',
+                            color: '#fff', cursor: 'pointer',
+                            fontSize: 15, fontWeight: 700, lineHeight: 1,
+                            boxShadow: '0 2px 6px rgba(124,58,237,.4)',
                           }}
+                          onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                         >+</button>
                         {/* Expand/collapse if subtasks exist */}
                         {subs.length > 0 && (
