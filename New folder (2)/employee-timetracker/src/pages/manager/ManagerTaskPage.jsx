@@ -87,6 +87,11 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
     return matchSearch && matchGroup && matchSg
   })
 
+  // All employees in the selected group (ignoring search) — used for group-assign
+  const groupEmps = groupFilter
+    ? employees.filter(e => e.groupId === groupFilter && (!sgFilter || e.subGroupId === sgFilter))
+    : []
+
   const toggleEmp = (id) => setSelectedEmps(prev => {
     const next = new Set(prev)
     next.has(id) ? next.delete(id) : next.add(id)
@@ -96,15 +101,26 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
   const handleAssign = async () => {
     setAssigning(true)
     try {
-      if (selectedEmps.size === 0) {
-        await api.assignTasksBulk([...checkedIds], null, targetDate, plannedDate)
-        onAssigned(null, selectedTasks.length)
-      } else {
-        for (const empId of selectedEmps) {
+      let empIds = []
+
+      if (selectedEmps.size > 0) {
+        // Case 1: specific employees selected → assign only to them
+        empIds = [...selectedEmps]
+      } else if (groupFilter !== null) {
+        // Case 2: group selected but no individual → assign to ALL members of that group
+        empIds = groupEmps.map(e => e.id)
+      }
+
+      if (empIds.length > 0) {
+        for (const empId of empIds) {
           await api.assignTasksBulk([...checkedIds], empId, targetDate, plannedDate)
         }
-        const names = employees.filter(e => selectedEmps.has(e.id)).map(e => e.name).join(', ')
+        const names = employees.filter(e => empIds.includes(e.id)).map(e => e.name).join(', ')
         onAssigned(names, selectedTasks.length)
+      } else {
+        // Case 3: nothing selected → just save with dates, no employee
+        await api.assignTasksBulk([...checkedIds], null, targetDate, plannedDate)
+        onAssigned(null, selectedTasks.length)
       }
     } catch {
       setMsg('Assignment failed')
@@ -374,7 +390,9 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
             {assigning ? 'Assigning…' :
               selectedEmps.size > 0
                 ? `Assign ${checkedIds.size} Task${checkedIds.size > 1 ? 's' : ''} to ${selectedEmps.size} Employee${selectedEmps.size > 1 ? 's' : ''}`
-                : `Assign ${checkedIds.size} Task${checkedIds.size > 1 ? 's' : ''}`
+                : groupFilter
+                  ? `Assign ${checkedIds.size} Task${checkedIds.size > 1 ? 's' : ''} to ${groups.find(g => g.id === groupFilter)?.name} (${groupEmps.length} members)`
+                  : `Assign ${checkedIds.size} Task${checkedIds.size > 1 ? 's' : ''}`
             }
           </button>
         </div>

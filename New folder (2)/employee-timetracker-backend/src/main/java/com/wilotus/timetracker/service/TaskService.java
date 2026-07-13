@@ -56,23 +56,26 @@ public class TaskService {
     }
 
     public void assignBulk(List<String> taskIds, String employeeId, String targetDate, String plannedDate, String managerUsername) {
-        Employee emp = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new RuntimeException("Employee not found: " + employeeId));
+        Employee emp = (employeeId != null && !employeeId.isBlank())
+                ? employeeRepository.findById(employeeId)
+                        .orElseThrow(() -> new RuntimeException("Employee not found: " + employeeId))
+                : null;
         String managerName = employeeRepository.findByUsername(managerUsername)
                 .map(Employee::getName).orElse(managerUsername);
         List<Task> tasks = taskRepository.findAllById(taskIds);
         tasks.forEach(t -> {
-            t.setAssignedTo(emp.getUsername());
-            t.setAssignedToName(emp.getName());
-            t.setAssignedBy(managerUsername);
-            t.setAssignedByName(managerName);
+            if (emp != null) {
+                t.setAssignedTo(emp.getUsername());
+                t.setAssignedToName(emp.getName());
+                t.setAssignedBy(managerUsername);
+                t.setAssignedByName(managerName);
+                t.setStatus(null);
+                t.setActualStartDateTime(null);
+                t.setActualEndDateTime(null);
+                t.setRemarks(null);
+            }
             if (targetDate  != null && !targetDate.isBlank())  t.setTargetDate(targetDate);
             if (plannedDate != null && !plannedDate.isBlank()) t.setPlannedDate(plannedDate);
-            // reset progress fields so employee starts fresh
-            t.setStatus(null);
-            t.setActualStartDateTime(null);
-            t.setActualEndDateTime(null);
-            t.setRemarks(null);
         });
         taskRepository.saveAll(tasks);
     }
