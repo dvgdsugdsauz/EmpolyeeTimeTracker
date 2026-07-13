@@ -62,4 +62,7 @@ public class Task {
 
     @Column(name = "planned_date")
     private String plannedDate;
+
+    @Column(name = "worked_minutes", columnDefinition = "INT DEFAULT 0")
+    private int workedMinutes;
 }

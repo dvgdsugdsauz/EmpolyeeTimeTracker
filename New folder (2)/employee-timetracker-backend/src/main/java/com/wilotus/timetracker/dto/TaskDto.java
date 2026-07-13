@@ -22,4 +22,5 @@ public class TaskDto {
     private String assignedBy;
     private String assignedByName;
     private String plannedDate;
+    private int workedMinutes;
 }

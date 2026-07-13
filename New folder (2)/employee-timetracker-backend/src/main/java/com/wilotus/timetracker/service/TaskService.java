@@ -87,6 +87,7 @@ public class TaskService {
         if (update.getActualEndDateTime()   != null) task.setActualEndDateTime(update.getActualEndDateTime());
         if (update.getStatus()              != null) task.setStatus(update.getStatus());
         if (update.getRemarks()             != null) task.setRemarks(update.getRemarks());
+        if (update.getWorkedMinutes()       >  0)    task.setWorkedMinutes(update.getWorkedMinutes());
         taskRepository.save(task);
         return toDto(task);
     }
@@ -111,6 +112,7 @@ public class TaskService {
         d.setAssignedBy(t.getAssignedBy());
         d.setAssignedByName(t.getAssignedByName());
         d.setPlannedDate(t.getPlannedDate());
+        d.setWorkedMinutes(t.getWorkedMinutes());
         return d;
     }
 }
