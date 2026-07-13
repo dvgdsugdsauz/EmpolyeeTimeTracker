@@ -576,21 +576,28 @@ export default function MyTasksPage() {
 
                   {/* ── Subtask rows (expanded) ── */}
                   {isExpand && subs.map(st => (
-                    <tr key={st.subTaskId} style={{ background: '#faf5ff' }}>
+                    <tr key={st.subTaskId}
+                      onClick={() => setSubModal({ parentTask: t, existingSubTask: st })}
+                      style={{ background: '#faf5ff', cursor: 'pointer' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f3e8ff'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#faf5ff'}
+                    >
                       <td style={{ ...tdStyle, paddingLeft: 20 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center' }}>
                           <span style={{ color: '#94a3b8', fontSize: 11 }}>└</span>
                           <span style={{ fontWeight: 700, color: '#7c3aed', fontSize: 12, whiteSpace: 'nowrap' }}>{st.subTaskId}</span>
                           <button
-                            title="Edit subtask"
-                            onClick={e => { e.stopPropagation(); setSubModal({ parentTask: t, existingSubTask: st }) }}
-                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6366f1', fontSize: 13, padding: '1px 3px' }}
-                          >✎</button>
-                          <button
                             title="Delete subtask"
                             onClick={e => { e.stopPropagation(); setConfirmDelete(st) }}
-                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 13, padding: '1px 3px' }}
-                          >✕</button>
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#dc2626', padding: '1px 3px', display: 'flex', alignItems: 'center' }}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6"/>
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                              <path d="M10 11v6M14 11v6"/>
+                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                            </svg>
+                          </button>
                         </div>
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'left', minWidth: 200, maxWidth: 280 }}>
