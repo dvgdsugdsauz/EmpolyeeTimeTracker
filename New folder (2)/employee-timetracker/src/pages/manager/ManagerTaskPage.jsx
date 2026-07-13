@@ -94,14 +94,18 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
   })
 
   const handleAssign = async () => {
-    if (selectedEmps.size === 0) { setMsg('Select at least one employee'); return }
     setAssigning(true)
     try {
-      for (const empId of selectedEmps) {
-        await api.assignTasksBulk([...checkedIds], empId, targetDate, plannedDate)
+      if (selectedEmps.size === 0) {
+        await api.assignTasksBulk([...checkedIds], null, targetDate, plannedDate)
+        onAssigned(null, selectedTasks.length)
+      } else {
+        for (const empId of selectedEmps) {
+          await api.assignTasksBulk([...checkedIds], empId, targetDate, plannedDate)
+        }
+        const names = employees.filter(e => selectedEmps.has(e.id)).map(e => e.name).join(', ')
+        onAssigned(names, selectedTasks.length)
       }
-      const names = employees.filter(e => selectedEmps.has(e.id)).map(e => e.name).join(', ')
-      onAssigned(names, selectedTasks.length)
     } catch {
       setMsg('Assignment failed')
       setTimeout(() => setMsg(''), 3000)
@@ -509,7 +513,8 @@ export default function ManagerTaskPage() {
     api.fetchAllTasks().then(setTasks).catch(() => {})
     setCheckedIds(new Set())
     setShowModal(false)
-    setAssignMsg(`${count} task${count > 1 ? 's' : ''} assigned to ${empName}`)
+    const label = empName ? `assigned to ${empName}` : 'saved (no employee assigned)'
+    setAssignMsg(`${count} task${count > 1 ? 's' : ''} ${label}`)
     setTimeout(() => setAssignMsg(''), 3000)
   }
 
