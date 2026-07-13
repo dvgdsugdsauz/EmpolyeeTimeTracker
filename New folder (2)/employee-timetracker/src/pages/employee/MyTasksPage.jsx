@@ -35,13 +35,56 @@ const localNow = () => {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/* ── Confirm Delete Popup ─────────────────────────────── */
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 2000,
+      background: 'rgba(15,23,42,.5)', backdropFilter: 'blur(2px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: 14, width: 360,
+        boxShadow: '0 20px 60px rgba(0,0,0,.22)', overflow: 'hidden',
+      }}>
+        <div style={{ padding: '22px 24px 16px', textAlign: 'center' }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%',
+            background: '#fef2f2', margin: '0 auto 14px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4h6v2"/>
+            </svg>
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: '#1e293b', marginBottom: 8 }}>Delete Subtask?</div>
+          <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>{message}</div>
+        </div>
+        <div style={{ padding: '12px 24px 20px', display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: '10px 0', borderRadius: 9, cursor: 'pointer',
+            background: '#f1f5f9', border: '1px solid #e2e8f0',
+            color: '#475569', fontWeight: 600, fontSize: 14,
+          }}>Cancel</button>
+          <button onClick={onConfirm} style={{
+            flex: 1, padding: '10px 0', borderRadius: 9, cursor: 'pointer',
+            border: 'none', background: '#dc2626', color: '#fff', fontWeight: 700, fontSize: 14,
+            boxShadow: '0 2px 8px rgba(220,38,38,.3)',
+          }}>Delete</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── SubTask Modal ─────────────────────────────────────── */
 function SubTaskModal({ parentTask, existingSubTask, onClose, onSaved }) {
   const [form, setForm] = useState({
-    description:          existingSubTask?.description          || '',
-    actualStartDateTime:  existingSubTask?.actualStartDateTime  || '',
-    actualEndDateTime:    existingSubTask?.actualEndDateTime     || '',
-    remarks:              existingSubTask?.remarks              || '',
+    description: existingSubTask?.description || '',
+    remarks:     existingSubTask?.remarks     || '',
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr]       = useState('')
@@ -116,24 +159,6 @@ function SubTaskModal({ parentTask, existingSubTask, onClose, onSaved }) {
               rows={3} placeholder="Describe this subtask…"
               style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
             />
-          </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Actual Start</label>
-              <DateTimePicker
-                value={form.actualStartDateTime}
-                onChange={v => set('actualStartDateTime', v)}
-                placeholder="Select start…"
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Actual End</label>
-              <DateTimePicker
-                value={form.actualEndDateTime}
-                onChange={v => set('actualEndDateTime', v)}
-                placeholder="Select end…"
-              />
-            </div>
           </div>
           <div>
             <label style={labelStyle}>Remarks</label>
@@ -336,7 +361,8 @@ export default function MyTasksPage() {
   const [saveMsg, setSaveMsg]       = useState('')
   const [subTaskMap, setSubTaskMap] = useState({})   // taskId → SubTask[]
   const [expanded, setExpanded]     = useState({})   // taskId → bool
-  const [subModal, setSubModal]     = useState(null) // { parentTask, existingSubTask? }
+  const [subModal, setSubModal]       = useState(null) // { parentTask, existingSubTask? }
+  const [confirmDelete, setConfirmDelete] = useState(null) // SubTask to delete
 
   useEffect(() => {
     Promise.all([api.fetchMyTasks(), api.fetchMySubTasks()])
@@ -375,15 +401,21 @@ export default function MyTasksPage() {
     setTimeout(() => setSaveMsg(''), 2500)
   }
 
-  async function handleSubTaskDelete(subTask) {
-    if (!window.confirm(`Delete subtask ${subTask.subTaskId}?`)) return
+  async function doDeleteSubTask(subTask) {
     try {
       await api.deleteSubTask(subTask.id)
       setSubTaskMap(prev => {
         const list = (prev[subTask.parentTaskId] || []).filter(s => s.id !== subTask.id)
         return { ...prev, [subTask.parentTaskId]: list }
       })
-    } catch (e) { alert(e.message || 'Delete failed') }
+      setSaveMsg('Subtask deleted')
+      setTimeout(() => setSaveMsg(''), 2500)
+    } catch (e) {
+      setSaveMsg('Delete failed')
+      setTimeout(() => setSaveMsg(''), 2500)
+    } finally {
+      setConfirmDelete(null)
+    }
   }
 
   if (loading) return (
@@ -515,7 +547,7 @@ export default function MyTasksPage() {
                           >✎</button>
                           <button
                             title="Delete subtask"
-                            onClick={e => { e.stopPropagation(); handleSubTaskDelete(st) }}
+                            onClick={e => { e.stopPropagation(); setConfirmDelete(st) }}
                             style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 13, padding: '1px 3px' }}
                           >✕</button>
                         </div>
@@ -550,6 +582,13 @@ export default function MyTasksPage() {
           existingSubTask={subModal.existingSubTask}
           onClose={() => setSubModal(null)}
           onSaved={handleSubTaskSaved}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmModal
+          message={`Are you sure you want to delete subtask "${confirmDelete.subTaskId}"? This action cannot be undone.`}
+          onConfirm={() => doDeleteSubTask(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
         />
       )}
     </div>
