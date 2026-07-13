@@ -69,6 +69,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
   const [groups, setGroups]             = useState([])
   const [groupFilter, setGroupFilter]   = useState(null)
   const [sgFilter, setSgFilter]         = useState(null)
+  const [groupOpen, setGroupOpen]       = useState(false)
   const backdropRef = useRef()
 
   useEffect(() => {
@@ -192,38 +193,6 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
               Assign To Employee <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional — select multiple)</span>
             </div>
 
-            {/* Group filter chips */}
-            {groups.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                <button onClick={() => { setGroupFilter(null); setSgFilter(null) }} style={{
-                  padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                  background: !groupFilter ? '#6366f1' : '#f1f5f9', color: !groupFilter ? '#fff' : '#64748b',
-                }}>All</button>
-                {groups.map(g => (
-                  <button key={g.id} onClick={() => { setGroupFilter(g.id); setSgFilter(null) }} style={{
-                    padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                    background: groupFilter === g.id ? '#7c3aed' : '#f3e8ff', color: groupFilter === g.id ? '#fff' : '#7c3aed',
-                  }}>{g.name}</button>
-                ))}
-              </div>
-            )}
-
-            {/* Sub-group filter */}
-            {currentGroup?.subGroups?.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-                <button onClick={() => setSgFilter(null)} style={{
-                  padding: '3px 10px', borderRadius: 20, border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                  background: !sgFilter ? '#7c3aed22' : 'none', color: '#7c3aed',
-                }}>All</button>
-                {currentGroup.subGroups.map(sg => (
-                  <button key={sg.id} onClick={() => setSgFilter(sg.id)} style={{
-                    padding: '3px 10px', borderRadius: 20, border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                    background: sgFilter === sg.id ? '#7c3aed22' : 'none', color: '#7c3aed',
-                  }}>{sg.name}</button>
-                ))}
-              </div>
-            )}
-
             {/* Search */}
             <input
               type="text" placeholder="Search employee..." value={empSearch}
@@ -275,6 +244,63 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
                     <button onClick={() => toggleEmp(e.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#a5b4fc', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
                   </span>
                 ))}
+              </div>
+            )}
+
+            {/* Collapsible group filter */}
+            {groups.length > 0 && (
+              <div style={{ marginTop: 10, border: '1px solid #e2e8f0', borderRadius: 9, overflow: 'hidden' }}>
+                <button onClick={() => setGroupOpen(o => !o)} style={{
+                  width: '100%', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  border: 'none', background: groupFilter ? '#f3e8ff' : '#f8fafc', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 600, color: groupFilter ? '#7c3aed' : '#64748b',
+                }}>
+                  <span>
+                    {groupFilter
+                      ? `Group: ${groups.find(g => g.id === groupFilter)?.name}${sgFilter ? ` › ${currentGroup?.subGroups?.find(s => s.id === sgFilter)?.name}` : ''}`
+                      : 'Filter by Group (optional)'}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {groupFilter && (
+                      <span onClick={e => { e.stopPropagation(); setGroupFilter(null); setSgFilter(null) }}
+                        style={{ color: '#a78bfa', fontSize: 14, lineHeight: 1, padding: '0 2px' }}>×</span>
+                    )}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                      style={{ transform: groupOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </div>
+                </button>
+                {groupOpen && (
+                  <div style={{ padding: '10px 12px', background: '#fff' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: currentGroup?.subGroups?.length > 0 ? 8 : 0 }}>
+                      <button onClick={() => { setGroupFilter(null); setSgFilter(null) }} style={{
+                        padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        background: !groupFilter ? '#6366f1' : '#f1f5f9', color: !groupFilter ? '#fff' : '#64748b',
+                      }}>All</button>
+                      {groups.map(g => (
+                        <button key={g.id} onClick={() => { setGroupFilter(g.id); setSgFilter(null) }} style={{
+                          padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                          background: groupFilter === g.id ? '#7c3aed' : '#f3e8ff', color: groupFilter === g.id ? '#fff' : '#7c3aed',
+                        }}>{g.name}</button>
+                      ))}
+                    </div>
+                    {currentGroup?.subGroups?.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        <button onClick={() => setSgFilter(null)} style={{
+                          padding: '3px 10px', borderRadius: 20, border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                          background: !sgFilter ? '#7c3aed22' : 'none', color: '#7c3aed',
+                        }}>All</button>
+                        {currentGroup.subGroups.map(sg => (
+                          <button key={sg.id} onClick={() => setSgFilter(sg.id)} style={{
+                            padding: '3px 10px', borderRadius: 20, border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                            background: sgFilter === sg.id ? '#7c3aed22' : 'none', color: '#7c3aed',
+                          }}>{sg.name}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

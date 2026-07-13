@@ -19,6 +19,7 @@ public class GroupController {
     private final GroupService groupService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER')")
     public ResponseEntity<List<GroupDetailDto>> getAll() {
         return ResponseEntity.ok(groupService.getAllGroups());
     }
