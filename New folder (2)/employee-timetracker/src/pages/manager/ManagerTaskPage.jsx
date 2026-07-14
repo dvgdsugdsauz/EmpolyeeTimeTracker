@@ -15,7 +15,7 @@ const STATUS_COLOR = {
   Pending:      { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' },
 }
 
-function FilterDropdown({ label, options, value, onChange }) {
+function FilterDropdown({ label, options, value, onChange, dark }) {
   const [open, setOpen] = useState(false)
   const ref = useRef()
   useEffect(() => {
@@ -27,7 +27,8 @@ function FilterDropdown({ label, options, value, onChange }) {
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
       <button onClick={() => setOpen(o => !o)} style={{
         display: 'flex', alignItems: 'center', gap: 4, background: 'none',
-        border: 'none', cursor: 'pointer', color: value ? '#6366f1' : '#475569',
+        border: 'none', cursor: 'pointer',
+        color: value ? '#a5b4fc' : (dark ? '#cbd5e1' : '#475569'),
         fontSize: 13, fontWeight: 600, padding: '2px 4px',
       }}>
         {label}
@@ -422,7 +423,7 @@ export default function ManagerTaskPage() {
   const [subTaskMap, setSubTaskMap] = useState({})   // parentTaskId → SubTask[]
   const [expandedSubs, setExpandedSubs] = useState({})
   const [checkedIds, setCheckedIds] = useState(new Set())
-  const [filters, setFilters]       = useState({ module: '', type: '', priority: '', status: '' })
+  const [filters, setFilters]       = useState({ module: '', type: '', priority: '', status: '', assignedTo: '', taskId: '' })
   const [employees, setEmployees]   = useState([])
   const [showModal, setShowModal]   = useState(false)
   const [assignMsg, setAssignMsg]   = useState('')
@@ -488,10 +489,12 @@ export default function ManagerTaskPage() {
   const tabTasks        = activeTab === 'unassigned' ? unassignedTasks : assignedTasks
 
   const visible = tabTasks.filter(t =>
-    (!filters.module   || t.module   === filters.module) &&
-    (!filters.type     || t.type     === filters.type) &&
-    (!filters.priority || t.priority === filters.priority) &&
-    (!filters.status   || t.status   === filters.status)
+    (!filters.taskId    || t.taskId    === filters.taskId) &&
+    (!filters.module    || t.module    === filters.module) &&
+    (!filters.type      || t.type      === filters.type) &&
+    (!filters.priority  || t.priority  === filters.priority) &&
+    (!filters.status    || t.status    === filters.status) &&
+    (!filters.assignedTo || t.assignedTo === filters.assignedTo || t.assignedToName === filters.assignedTo)
   )
 
   const uniq = (key) => [...new Set(tabTasks.map(t => t[key]).filter(Boolean))]
@@ -547,7 +550,7 @@ export default function ManagerTaskPage() {
         ].map(tab => (
           <button
             key={tab.key}
-            onClick={() => { setActiveTab(tab.key); setCheckedIds(new Set()); setFilters({ module: '', type: '', priority: '', status: '' }) }}
+            onClick={() => { setActiveTab(tab.key); setCheckedIds(new Set()); setFilters({ module: '', type: '', priority: '', status: '', assignedTo: '', taskId: '' }) }}
             style={{
               padding: '10px 20px', border: 'none', cursor: 'pointer',
               background: 'none', fontWeight: 600, fontSize: 14,
@@ -689,9 +692,25 @@ export default function ManagerTaskPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#1e293b', position: 'sticky', top: 0, zIndex: 10 }}>
-                {['Task ID', 'Task Description', 'Assigned To', 'Planned Date', 'Target Date', 'Priority', 'Actual Start', 'Actual End', 'Status', 'Hours', 'Remarks'].map(h => (
-                  <th key={h} style={assignedThStyle}>{h}</th>
-                ))}
+                <th style={assignedThStyle}>
+                  <FilterDropdown label="Task ID" options={uniq('taskId')} value={filters.taskId || ''} onChange={v => setFilter('taskId', v)} dark />
+                </th>
+                <th style={{ ...assignedThStyle, textAlign: 'left', minWidth: 200 }}>Task Description</th>
+                <th style={assignedThStyle}>
+                  <FilterDropdown label="Assigned To" options={[...new Set(assignedTasks.map(t => t.assignedToName || t.assignedTo).filter(Boolean))]} value={filters.assignedTo || ''} onChange={v => setFilter('assignedTo', v)} dark />
+                </th>
+                <th style={assignedThStyle}>Planned Date</th>
+                <th style={assignedThStyle}>Target Date</th>
+                <th style={assignedThStyle}>
+                  <FilterDropdown label="Priority" options={uniq('priority')} value={filters.priority} onChange={v => setFilter('priority', v)} dark />
+                </th>
+                <th style={assignedThStyle}>Actual Start</th>
+                <th style={assignedThStyle}>Actual End</th>
+                <th style={assignedThStyle}>
+                  <FilterDropdown label="Status" options={uniq('status')} value={filters.status} onChange={v => setFilter('status', v)} dark />
+                </th>
+                <th style={assignedThStyle}>Hours</th>
+                <th style={assignedThStyle}>Remarks</th>
               </tr>
             </thead>
             <tbody>
