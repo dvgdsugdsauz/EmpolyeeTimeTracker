@@ -432,9 +432,11 @@ export default function ManagerTaskPage() {
   const [revertTask, setRevertTask] = useState(null)
   const [reverting, setReverting]   = useState(false)
   const [importing, setImporting]   = useState(false)
+  const [groups, setGroups]         = useState([])
   const fileRef = useRef()
 
   useEffect(() => {
+    api.fetchGroups().then(setGroups).catch(() => {})
     api.fetchEmployees().then(setEmployees).catch(() => {})
     Promise.all([api.fetchAllTasks(), api.fetchMySubTasks ? api.fetchMySubTasks() : Promise.resolve([])])
       .then(([ts, sts]) => {
@@ -774,7 +776,23 @@ export default function ManagerTaskPage() {
                       <td style={{ ...tdStyle, textAlign: 'left', minWidth: 200, maxWidth: 300 }}>
                         <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151' }}>{t.description}</span>
                       </td>
-                      <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.assignedToName || t.assignedTo || '—'}</span></td>
+                      <td style={tdStyle}>
+                        {(() => {
+                          const emp = employees.find(e => e.username === t.assignedTo || e.id === t.assignedTo)
+                          const grp = emp?.groupId ? groups.find(g => g.id === emp.groupId) : null
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              <span style={{ color: '#374151', whiteSpace: 'nowrap', fontWeight: 500 }}>{t.assignedToName || t.assignedTo || '—'}</span>
+                              {grp && (
+                                <span style={{
+                                  fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 20,
+                                  background: '#f3e8ff', color: '#7c3aed', whiteSpace: 'nowrap',
+                                }}>{grp.name}</span>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </td>
                       <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.plannedDate || '—'}</span></td>
                       <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span></td>
                       <td style={tdStyle}>
