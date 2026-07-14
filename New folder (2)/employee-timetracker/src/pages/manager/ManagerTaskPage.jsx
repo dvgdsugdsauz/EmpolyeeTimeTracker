@@ -83,9 +83,11 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
     const matchSearch = !empSearch ||
       (e.name || '').toLowerCase().includes(empSearch.toLowerCase()) ||
       (e.username || '').toLowerCase().includes(empSearch.toLowerCase())
+    // when user is typing, search all employees — group filter only applies when search is empty
+    if (empSearch) return matchSearch
     const matchGroup = !groupFilter || e.groupId === groupFilter
     const matchSg    = !sgFilter    || e.subGroupId === sgFilter
-    return matchSearch && matchGroup && matchSg
+    return matchGroup && matchSg
   })
 
   // All employees in the selected group (ignoring search) — used for group-assign
