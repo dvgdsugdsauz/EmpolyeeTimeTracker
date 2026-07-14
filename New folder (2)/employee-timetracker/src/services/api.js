@@ -333,6 +333,12 @@ export function assignTasksBulk(taskIds, employeeId, targetDate, plannedDate) {
   })
 }
 
+export function assignTasksBulkGroup(taskIds, employeeIds, groupName, targetDate, plannedDate) {
+  return request('/api/tasks/assign-bulk-group', {
+    method: 'POST', body: JSON.stringify({ taskIds, employeeIds, groupName, targetDate: targetDate || null, plannedDate: plannedDate || null }),
+  })
+}
+
 export function unassignTask(taskId) {
   return request(`/api/tasks/${encodeURIComponent(taskId)}/assign`, { method: 'DELETE' })
 }

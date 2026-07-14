@@ -53,6 +53,21 @@ public class TaskController {
         return ResponseEntity.ok(Map.of("assigned", taskIds.size()));
     }
 
+    @PostMapping("/assign-bulk-group")
+    public ResponseEntity<Map<String, Object>> assignBulkGroup(
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        @SuppressWarnings("unchecked")
+        List<String> taskIds     = (List<String>) body.get("taskIds");
+        @SuppressWarnings("unchecked")
+        List<String> employeeIds = (List<String>) body.get("employeeIds");
+        String groupName   = (String) body.get("groupName");
+        String targetDate  = (String) body.get("targetDate");
+        String plannedDate = (String) body.get("plannedDate");
+        taskService.assignBulkGroup(taskIds, employeeIds, groupName, targetDate, plannedDate, auth.getName());
+        return ResponseEntity.ok(Map.of("assigned", taskIds.size()));
+    }
+
     @DeleteMapping("/{taskId}/assign")
     public ResponseEntity<?> unassignTask(@PathVariable String taskId) {
         taskService.unassignTask(taskId);

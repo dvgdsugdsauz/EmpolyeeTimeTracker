@@ -115,8 +115,15 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
       }
 
       if (empIds.length > 0) {
-        for (const empId of empIds) {
-          await api.assignTasksBulk([...checkedIds], empId, targetDate, plannedDate)
+        const isGroupAssign = selectedEmps.size === 0 && groupFilter !== null
+        if (isGroupAssign) {
+          // Group assign — backend creates copies per employee
+          const grpName = groups.find(g => g.id === groupFilter)?.name || ''
+          await api.assignTasksBulkGroup([...checkedIds], empIds, grpName, targetDate, plannedDate)
+        } else {
+          for (const empId of empIds) {
+            await api.assignTasksBulk([...checkedIds], empId, targetDate, plannedDate)
+          }
         }
         const names = employees.filter(e => empIds.includes(e.id)).map(e => e.name).join(', ')
         onAssigned(names, selectedTasks.length)
@@ -777,21 +784,19 @@ export default function ManagerTaskPage() {
                         <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#374151' }}>{t.description}</span>
                       </td>
                       <td style={tdStyle}>
-                        {(() => {
-                          const emp = employees.find(e => e.username === t.assignedTo || e.id === t.assignedTo)
-                          const grp = emp?.groupId ? groups.find(g => g.id === emp.groupId) : null
-                          return (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                              <span style={{ color: '#374151', whiteSpace: 'nowrap', fontWeight: 500 }}>{t.assignedToName || t.assignedTo || '—'}</span>
-                              {grp && (
-                                <span style={{
-                                  fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 20,
-                                  background: '#f3e8ff', color: '#7c3aed', whiteSpace: 'nowrap',
-                                }}>{grp.name}</span>
-                              )}
-                            </div>
-                          )
-                        })()}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          <span style={{ color: '#374151', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                            {t.assignedToName || t.assignedTo || '—'}
+                          </span>
+                          {t.assignedGroupName && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 20,
+                              background: '#f3e8ff', color: '#7c3aed', whiteSpace: 'nowrap',
+                            }}>
+                              {t.assignedGroupName}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.plannedDate || '—'}</span></td>
                       <td style={tdStyle}><span style={{ color: '#374151', whiteSpace: 'nowrap' }}>{t.targetDate || '—'}</span></td>

@@ -65,4 +65,7 @@ public class Task {
 
     @Column(name = "worked_minutes", columnDefinition = "INT DEFAULT 0")
     private int workedMinutes;
+
+    @Column(name = "assigned_group_name")
+    private String assignedGroupName;
 }

@@ -96,6 +96,49 @@ public class TaskService {
         taskRepository.saveAll(tasks);
     }
 
+    @Transactional
+    public void assignBulkGroup(List<String> taskIds, List<String> employeeIds, String groupName, String targetDate, String plannedDate, String managerUsername) {
+        String managerName = employeeRepository.findByUsername(managerUsername)
+                .map(Employee::getName).orElse(managerUsername);
+        List<Task> sourceTasks = taskRepository.findAllById(taskIds);
+
+        for (Task source : sourceTasks) {
+            List<Task> toSave = new java.util.ArrayList<>();
+            for (int i = 0; i < employeeIds.size(); i++) {
+                Employee emp = employeeRepository.findById(employeeIds.get(i))
+                        .orElseThrow(() -> new RuntimeException("Employee not found"));
+                Task t = (i == 0) ? source : copyTask(source, source.getTaskId() + "~" + (i + 1));
+                t.setAssignedTo(emp.getUsername());
+                t.setAssignedToName(emp.getName());
+                t.setAssignedBy(managerUsername);
+                t.setAssignedByName(managerName);
+                t.setAssignedGroupName(groupName);
+                t.setStatus(null);
+                t.setActualStartDateTime(null);
+                t.setActualEndDateTime(null);
+                t.setRemarks(null);
+                t.setWorkedMinutes(0);
+                if (targetDate  != null && !targetDate.isBlank())  t.setTargetDate(targetDate);
+                if (plannedDate != null && !plannedDate.isBlank()) t.setPlannedDate(plannedDate);
+                toSave.add(t);
+            }
+            taskRepository.saveAll(toSave);
+        }
+    }
+
+    private Task copyTask(Task src, String newId) {
+        Task t = new Task();
+        t.setTaskId(newId);
+        t.setModule(src.getModule());
+        t.setDescription(src.getDescription());
+        t.setType(src.getType());
+        t.setPriority(src.getPriority());
+        t.setTicketRef(src.getTicketRef());
+        t.setRole(src.getRole());
+        t.setQaAssigned(src.getQaAssigned());
+        return t;
+    }
+
     public TaskDto updateMyTask(String taskId, String username, TaskDto update) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
@@ -132,6 +175,7 @@ public class TaskService {
         d.setAssignedByName(t.getAssignedByName());
         d.setPlannedDate(t.getPlannedDate());
         d.setWorkedMinutes(t.getWorkedMinutes());
+        d.setAssignedGroupName(t.getAssignedGroupName());
         return d;
     }
 }
