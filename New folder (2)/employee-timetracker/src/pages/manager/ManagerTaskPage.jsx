@@ -427,6 +427,8 @@ export default function ManagerTaskPage() {
   const [employees, setEmployees]   = useState([])
   const [showModal, setShowModal]   = useState(false)
   const [assignMsg, setAssignMsg]   = useState('')
+  const [revertTask, setRevertTask] = useState(null)
+  const [reverting, setReverting]   = useState(false)
   const [importing, setImporting]   = useState(false)
   const fileRef = useRef()
 
@@ -537,6 +539,23 @@ export default function ManagerTaskPage() {
     const label = empName ? `assigned to ${empName}` : 'saved (no employee assigned)'
     setAssignMsg(`${count} task${count > 1 ? 's' : ''} ${label}`)
     setTimeout(() => setAssignMsg(''), 3000)
+  }
+
+  const handleRevert = async () => {
+    if (!revertTask) return
+    setReverting(true)
+    try {
+      await api.unassignTask(revertTask.taskId)
+      await api.fetchAllTasks().then(setTasks)
+      setAssignMsg(`${revertTask.taskId} reverted to unassigned`)
+      setTimeout(() => setAssignMsg(''), 3000)
+    } catch {
+      setAssignMsg('Revert failed')
+      setTimeout(() => setAssignMsg(''), 3000)
+    } finally {
+      setReverting(false)
+      setRevertTask(null)
+    }
   }
 
   return (
@@ -711,6 +730,7 @@ export default function ManagerTaskPage() {
                 </th>
                 <th style={assignedThStyle}>Hours</th>
                 <th style={assignedThStyle}>Remarks</th>
+                <th style={assignedThStyle}></th>
               </tr>
             </thead>
             <tbody>
@@ -773,6 +793,23 @@ export default function ManagerTaskPage() {
                       <td style={{ ...tdStyle, maxWidth: 200, textAlign: 'left' }}>
                         <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: t.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{t.remarks || '—'}</span>
                       </td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                        <button
+                          title="Revert to Unassigned"
+                          onClick={e => { e.stopPropagation(); setRevertTask(t) }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                            borderRadius: 6, border: '1px solid #fecaca', background: '#fef2f2',
+                            color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                          </svg>
+                          Revert
+                        </button>
+                      </td>
                     </tr>
                     {/* Subtask rows */}
                     {isExpand && subs.length === 0 && (
@@ -800,6 +837,7 @@ export default function ManagerTaskPage() {
                         <td style={{ ...tdStyle, maxWidth: 200, textAlign: 'left' }}>
                           <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: st.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{st.remarks || '—'}</span>
                         </td>
+                        <td style={tdStyle}></td>
                       </tr>
                     ))}
                   </>
@@ -856,6 +894,48 @@ export default function ManagerTaskPage() {
           onClose={() => setShowModal(false)}
           onAssigned={handleAssigned}
         />
+      )}
+
+      {/* Revert Confirm Modal */}
+      {revertTask && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: '28px 32px', width: 380,
+            boxShadow: '0 20px 60px rgba(0,0,0,.2)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Revert Task?</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>This will move it back to Unassigned</div>
+              </div>
+            </div>
+            <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, color: '#6366f1', fontSize: 13 }}>{revertTask.taskId}</div>
+              <div style={{ fontSize: 12, color: '#374151', marginTop: 2 }}>{revertTask.description}</div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Assigned to: {revertTask.assignedToName || revertTask.assignedTo}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setRevertTask(null)} style={{
+                flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #e2e8f0',
+                background: '#f8fafc', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer',
+              }}>Cancel</button>
+              <button onClick={handleRevert} disabled={reverting} style={{
+                flex: 1, padding: '10px', borderRadius: 8, border: 'none',
+                background: '#dc2626', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                opacity: reverting ? .7 : 1,
+              }}>{reverting ? 'Reverting…' : 'Yes, Revert'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

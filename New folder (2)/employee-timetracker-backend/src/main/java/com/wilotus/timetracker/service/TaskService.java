@@ -7,6 +7,7 @@ import com.wilotus.timetracker.repository.EmployeeRepository;
 import com.wilotus.timetracker.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -53,6 +54,21 @@ public class TaskService {
         task.setAssignedToName(emp.getName());
         taskRepository.save(task);
         return toDto(task);
+    }
+
+    @Transactional
+    public void unassignTask(String taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
+        task.setAssignedTo(null);
+        task.setAssignedToName(null);
+        task.setAssignedBy(null);
+        task.setAssignedByName(null);
+        task.setStatus(null);
+        task.setActualStartDateTime(null);
+        task.setActualEndDateTime(null);
+        task.setRemarks(null);
+        taskRepository.save(task);
     }
 
     public void assignBulk(List<String> taskIds, String employeeId, String targetDate, String plannedDate, String managerUsername) {

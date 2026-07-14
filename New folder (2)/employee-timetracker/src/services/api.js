@@ -333,6 +333,10 @@ export function assignTasksBulk(taskIds, employeeId, targetDate, plannedDate) {
   })
 }
 
+export function unassignTask(taskId) {
+  return request(`/api/tasks/${encodeURIComponent(taskId)}/assign`, { method: 'DELETE' })
+}
+
 export function updateMyTask(taskId, dto) {
   return request(`/api/tasks/${encodeURIComponent(taskId)}/my-update`, {
     method: 'PUT', body: JSON.stringify(dto),

@@ -53,6 +53,12 @@ public class TaskController {
         return ResponseEntity.ok(Map.of("assigned", taskIds.size()));
     }
 
+    @DeleteMapping("/{taskId}/assign")
+    public ResponseEntity<?> unassignTask(@PathVariable String taskId) {
+        taskService.unassignTask(taskId);
+        return ResponseEntity.ok(Map.of("status", "unassigned"));
+    }
+
     @PutMapping("/{taskId}/my-update")
     public TaskDto updateMyTask(
             @PathVariable String taskId,
