@@ -112,7 +112,7 @@ public class TaskService {
             for (int i = 0; i < employeeIds.size(); i++) {
                 Employee emp = employeeRepository.findById(employeeIds.get(i))
                         .orElseThrow(() -> new RuntimeException("Employee not found"));
-                Task t = (i == 0) ? source : copyTask(source, source.getTaskId() + "~" + (i + 1));
+                Task t = (i == 0) ? source : copyTask(source, source.getTaskId() + "-" + (i + 1));
                 t.setAssignedTo(emp.getUsername());
                 t.setAssignedToName(emp.getName());
                 t.setAssignedBy(managerUsername);
