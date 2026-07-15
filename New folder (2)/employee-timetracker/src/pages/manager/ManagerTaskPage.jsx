@@ -289,8 +289,8 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
                 background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', marginBottom: 8 }}
             />
 
-            {/* Employee list — only visible when searching */}
-            {empSearch.length > 0 && <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+            {/* Employee list — visible when searching OR group selected */}
+            {(empSearch.length > 0 || groupFilter !== null) && <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 10 }}>
               {filteredEmps.length === 0 ? (
                 <div style={{ padding: 14, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No employees found</div>
               ) : filteredEmps.map(emp => {
@@ -321,6 +321,7 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
             </div>}
 
             {/* Selected chips */}
+
             {selectedEmps.size > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                 {employees.filter(e => selectedEmps.has(e.id)).map(e => (
