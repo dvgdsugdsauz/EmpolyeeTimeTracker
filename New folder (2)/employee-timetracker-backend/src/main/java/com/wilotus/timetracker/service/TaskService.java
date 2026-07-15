@@ -27,22 +27,27 @@ public class TaskService {
         return taskRepository.findByAssignedTo(username).stream().map(this::toDto).collect(Collectors.toList());
     }
 
+    @Transactional
     public void importTasks(List<TaskDto> dtos) {
-        List<Task> tasks = dtos.stream().map(dto -> {
-            Task t = taskRepository.findById(dto.getTaskId()).orElse(new Task());
-            t.setTaskId(dto.getTaskId());
-            t.setModule(dto.getModule());
-            t.setDescription(dto.getDescription());
-            t.setType(dto.getType());
-            t.setPriority(dto.getPriority());
-            t.setTicketRef(dto.getTicketRef());
-            t.setRole(dto.getRole());
-            t.setQaAssigned(dto.getQaAssigned());
-            t.setTargetDate(dto.getTargetDate());
-            t.setStatus(dto.getStatus() != null ? dto.getStatus() : "Pending");
-            return t;
-        }).collect(Collectors.toList());
-        taskRepository.saveAll(tasks);
+        List<Task> tasks = dtos.stream()
+            .filter(dto -> dto.getTaskId() != null && !dto.getTaskId().isBlank())
+            .map(dto -> {
+                Task t = taskRepository.findById(dto.getTaskId()).orElse(new Task());
+                t.setTaskId(dto.getTaskId());
+                t.setModule(dto.getModule());
+                t.setDescription(dto.getDescription());
+                t.setType(dto.getType());
+                t.setPriority(dto.getPriority());
+                t.setTicketRef(dto.getTicketRef());
+                t.setRole(dto.getRole());
+                t.setQaAssigned(dto.getQaAssigned());
+                t.setTargetDate(dto.getTargetDate());
+                t.setStatus(dto.getStatus() != null && !dto.getStatus().isBlank() ? dto.getStatus() : "Pending");
+                return t;
+            }).collect(Collectors.toList());
+        if (!tasks.isEmpty()) {
+            taskRepository.saveAll(tasks);
+        }
     }
 
     public TaskDto assignTask(String taskId, String employeeId) {

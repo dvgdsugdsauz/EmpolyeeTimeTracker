@@ -115,15 +115,15 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
       }
 
       if (empIds.length > 0) {
-        const isGroupAssign = selectedEmps.size === 0 && groupFilter !== null
-        if (isGroupAssign) {
-          // Group assign — backend creates copies per employee
-          const grpName = groups.find(g => g.id === groupFilter)?.name || ''
-          await api.assignTasksBulkGroup([...checkedIds], empIds, grpName, targetDate, plannedDate)
+        if (empIds.length === 1) {
+          // Single employee → simple assign
+          await api.assignTasksBulk([...checkedIds], empIds[0], targetDate, plannedDate)
         } else {
-          for (const empId of empIds) {
-            await api.assignTasksBulk([...checkedIds], empId, targetDate, plannedDate)
-          }
+          // Multiple employees → create copies per employee (group or manual multi-select)
+          const grpName = (selectedEmps.size === 0 && groupFilter !== null)
+            ? groups.find(g => g.id === groupFilter)?.name || ''
+            : ''
+          await api.assignTasksBulkGroup([...checkedIds], empIds, grpName, targetDate, plannedDate)
         }
         const names = employees.filter(e => empIds.includes(e.id)).map(e => e.name).join(', ')
         onAssigned(names, selectedTasks.length)
@@ -223,63 +223,9 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
               Assign To Employee <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional — select multiple)</span>
             </div>
 
-            {/* Search */}
-            <input
-              type="text" placeholder="Search employee..." value={empSearch}
-              onChange={e => setEmpSearch(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, boxSizing: 'border-box',
-                background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', marginBottom: 8 }}
-            />
-
-            {/* Employee list with checkboxes */}
-            <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 10 }}>
-              {filteredEmps.length === 0 ? (
-                <div style={{ padding: 14, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No employees found</div>
-              ) : filteredEmps.map(emp => {
-                const checked = selectedEmps.has(emp.id)
-                return (
-                  <div key={emp.id} onClick={() => toggleEmp(emp.id)} style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px',
-                    cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
-                    background: checked ? '#eef2ff' : '#fff', transition: 'background .1s',
-                  }}
-                    onMouseEnter={e => { if (!checked) e.currentTarget.style.background = '#f8fafc' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = checked ? '#eef2ff' : '#fff' }}
-                  >
-                    <div style={{
-                      width: 18, height: 18, borderRadius: 5, border: `2px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
-                      background: checked ? '#6366f1' : '#fff', flexShrink: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {checked && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{emp.name || emp.username}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.designation} · {emp.dept}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Selected chips */}
-            {selectedEmps.size > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                {employees.filter(e => selectedEmps.has(e.id)).map(e => (
-                  <span key={e.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-                    borderRadius: 20, background: '#eef2ff', color: '#6366f1', fontSize: 12, fontWeight: 600,
-                  }}>
-                    {e.name}
-                    <button onClick={() => toggleEmp(e.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#a5b4fc', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Collapsible group filter */}
+            {/* Collapsible group filter — TOP */}
             {groups.length > 0 && (
-              <div style={{ marginTop: 10, border: '1px solid #e2e8f0', borderRadius: 9, overflow: 'hidden' }}>
+              <div style={{ marginBottom: 10, border: '1px solid #e2e8f0', borderRadius: 9, overflow: 'hidden' }}>
                 <button onClick={() => setGroupOpen(o => !o)} style={{
                   width: '100%', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   border: 'none', background: groupFilter ? '#f3e8ff' : '#f8fafc', cursor: 'pointer',
@@ -331,6 +277,61 @@ function AssignModal({ checkedIds, selectedTasks, employees, onClose, onAssigned
                     )}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Search — BELOW group filter */}
+            <input
+              type="text" placeholder="Search employee..." value={empSearch}
+              onChange={e => setEmpSearch(e.target.value)}
+              autoComplete="off" autoCorrect="off" autoCapitalize="off"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, boxSizing: 'border-box',
+                background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', marginBottom: 8 }}
+            />
+
+            {/* Employee list with checkboxes */}
+            <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+              {filteredEmps.length === 0 ? (
+                <div style={{ padding: 14, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No employees found</div>
+              ) : filteredEmps.map(emp => {
+                const checked = selectedEmps.has(emp.id)
+                return (
+                  <div key={emp.id} onClick={() => toggleEmp(emp.id)} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px',
+                    cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                    background: checked ? '#eef2ff' : '#fff', transition: 'background .1s',
+                  }}
+                    onMouseEnter={e => { if (!checked) e.currentTarget.style.background = '#f8fafc' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = checked ? '#eef2ff' : '#fff' }}
+                  >
+                    <div style={{
+                      width: 18, height: 18, borderRadius: 5, border: `2px solid ${checked ? '#6366f1' : '#cbd5e1'}`,
+                      background: checked ? '#6366f1' : '#fff', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {checked && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{emp.name || emp.username}</div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.designation} · {emp.dept}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Selected chips */}
+            {selectedEmps.size > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {employees.filter(e => selectedEmps.has(e.id)).map(e => (
+                  <span key={e.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+                    borderRadius: 20, background: '#eef2ff', color: '#6366f1', fontSize: 12, fontWeight: 600,
+                  }}>
+                    {e.name}
+                    <button onClick={() => toggleEmp(e.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#a5b4fc', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                  </span>
+                ))}
               </div>
             )}
 
@@ -436,9 +437,10 @@ export default function ManagerTaskPage() {
   const [employees, setEmployees]   = useState([])
   const [showModal, setShowModal]   = useState(false)
   const [assignMsg, setAssignMsg]   = useState('')
-  const [revertTask, setRevertTask] = useState(null)
-  const [reverting, setReverting]   = useState(false)
-  const [importing, setImporting]   = useState(false)
+  const [revertIds, setRevertIds]           = useState(new Set())
+  const [revertBulk, setRevertBulk]         = useState(false)
+  const [revertingBulk, setRevertingBulk]   = useState(false)
+  const [importing, setImporting]           = useState(false)
   const [groups, setGroups]         = useState([])
   const fileRef = useRef()
 
@@ -543,6 +545,23 @@ export default function ManagerTaskPage() {
 
   const selectedTasks = tasks.filter(t => checkedIds.has(t.taskId))
 
+  const allRevertChecked  = activeTab === 'assigned' && visible.length > 0 && visible.every(t => revertIds.has(t.taskId))
+  const someRevertChecked = activeTab === 'assigned' && visible.some(t => revertIds.has(t.taskId))
+
+  const toggleAllRevert = () => {
+    if (allRevertChecked) {
+      const next = new Set(revertIds); visible.forEach(t => next.delete(t.taskId)); setRevertIds(next)
+    } else {
+      const next = new Set(revertIds); visible.forEach(t => next.add(t.taskId)); setRevertIds(next)
+    }
+  }
+
+  const toggleOneRevert = (taskId) => {
+    const next = new Set(revertIds)
+    next.has(taskId) ? next.delete(taskId) : next.add(taskId)
+    setRevertIds(next)
+  }
+
   const handleAssigned = (empName, count) => {
     api.fetchAllTasks().then(setTasks).catch(() => {})
     setCheckedIds(new Set())
@@ -552,20 +571,21 @@ export default function ManagerTaskPage() {
     setTimeout(() => setAssignMsg(''), 3000)
   }
 
-  const handleRevert = async () => {
-    if (!revertTask) return
-    setReverting(true)
+  const handleBulkRevert = async () => {
+    setRevertingBulk(true)
     try {
-      await api.unassignTask(revertTask.taskId)
+      await Promise.all([...revertIds].map(id => api.unassignTask(id)))
       await api.fetchAllTasks().then(setTasks)
-      setAssignMsg(`${revertTask.taskId} reverted to unassigned`)
+      const count = revertIds.size
+      setRevertIds(new Set())
+      setRevertBulk(false)
+      setAssignMsg(`${count} task${count > 1 ? 's' : ''} reverted to unassigned`)
       setTimeout(() => setAssignMsg(''), 3000)
     } catch {
       setAssignMsg('Revert failed')
       setTimeout(() => setAssignMsg(''), 3000)
     } finally {
-      setReverting(false)
-      setRevertTask(null)
+      setRevertingBulk(false)
     }
   }
 
@@ -580,7 +600,7 @@ export default function ManagerTaskPage() {
         ].map(tab => (
           <button
             key={tab.key}
-            onClick={() => { setActiveTab(tab.key); setCheckedIds(new Set()); setFilters({ module: '', type: '', priority: '', status: '', assignedTo: '', taskId: '' }) }}
+            onClick={() => { setActiveTab(tab.key); setCheckedIds(new Set()); setRevertIds(new Set()); setFilters({ module: '', type: '', priority: '', status: '', assignedTo: '', taskId: '' }) }}
             style={{
               padding: '10px 20px', border: 'none', cursor: 'pointer',
               background: 'none', fontWeight: 600, fontSize: 14,
@@ -722,6 +742,15 @@ export default function ManagerTaskPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#1e293b', position: 'sticky', top: 0, zIndex: 10 }}>
+                <th style={{ ...assignedThStyle, width: 40 }}>
+                  <input
+                    type="checkbox"
+                    checked={allRevertChecked}
+                    ref={el => { if (el) el.indeterminate = someRevertChecked && !allRevertChecked }}
+                    onChange={toggleAllRevert}
+                    style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#fca5a5' }}
+                  />
+                </th>
                 <th style={assignedThStyle}>
                   <FilterDropdown label="Task ID" options={uniq('taskId')} value={filters.taskId || ''} onChange={v => setFilter('taskId', v)} dark />
                 </th>
@@ -741,31 +770,35 @@ export default function ManagerTaskPage() {
                 </th>
                 <th style={assignedThStyle}>Hours</th>
                 <th style={assignedThStyle}>Remarks</th>
-                <th style={assignedThStyle}></th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={11} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
+                  <td colSpan={12} style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
                     No assigned tasks yet
                   </td>
                 </tr>
               )}
               {visible.map((t, i) => {
-                const pc       = PRIORITY_COLOR[t.priority] || {}
-                const status   = t.status || 'Pending'
-                const sc       = STATUS_COLOR[status] || STATUS_COLOR.Pending
-                const subs     = subTaskMap[t.taskId] || []
-                const isExpand = expandedSubs[t.taskId]
-                const rowBg    = i % 2 === 0 ? '#fff' : '#fafafa'
+                const pc            = PRIORITY_COLOR[t.priority] || {}
+                const status        = t.status || 'Pending'
+                const sc            = STATUS_COLOR[status] || STATUS_COLOR.Pending
+                const subs          = subTaskMap[t.taskId] || []
+                const isExpand      = expandedSubs[t.taskId]
+                const isRevChecked  = revertIds.has(t.taskId)
+                const rowBg         = isRevChecked ? '#fff5f5' : (i % 2 === 0 ? '#fff' : '#fafafa')
                 return (
                   <>
                     <tr key={t.taskId + i}
-                      style={{ background: rowBg, transition: 'background .1s' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9' }}
+                      style={{ background: rowBg, borderLeft: isRevChecked ? '3px solid #dc2626' : '3px solid transparent', transition: 'background .1s' }}
+                      onMouseEnter={e => { if (!isRevChecked) e.currentTarget.style.background = '#f1f5f9' }}
                       onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
                     >
+                      <td style={tdStyle} onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" checked={isRevChecked} onChange={() => toggleOneRevert(t.taskId)}
+                          style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#dc2626' }} />
+                      </td>
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center' }}>
                           <span style={{ fontWeight: 700, color: '#6366f1', whiteSpace: 'nowrap' }}>{t.taskId}</span>
@@ -818,32 +851,16 @@ export default function ManagerTaskPage() {
                       <td style={{ ...tdStyle, maxWidth: 200, textAlign: 'left' }}>
                         <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: t.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{t.remarks || '—'}</span>
                       </td>
-                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                        <button
-                          title="Revert to Unassigned"
-                          onClick={e => { e.stopPropagation(); setRevertTask(t) }}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-                            borderRadius: 6, border: '1px solid #fecaca', background: '#fef2f2',
-                            color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                          }}
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                            <path d="M3 3v5h5"/>
-                          </svg>
-                          Revert
-                        </button>
-                      </td>
                     </tr>
                     {/* Subtask rows */}
                     {isExpand && subs.length === 0 && (
                       <tr key={t.taskId + '-nosubs'} style={{ background: '#faf5ff' }}>
-                        <td colSpan={11} style={{ ...tdStyle, color: '#c4b5fd', fontSize: 12, fontStyle: 'italic' }}>No subtasks created yet</td>
+                        <td colSpan={12} style={{ ...tdStyle, color: '#c4b5fd', fontSize: 12, fontStyle: 'italic' }}>No subtasks created yet</td>
                       </tr>
                     )}
                     {isExpand && subs.map(st => (
                       <tr key={st.subTaskId} style={{ background: '#faf5ff' }}>
+                        <td style={tdStyle}></td>
                         <td style={{ ...tdStyle, paddingLeft: 20 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center' }}>
                             <span style={{ color: '#c4b5fd', fontSize: 11 }}>└</span>
@@ -862,7 +879,6 @@ export default function ManagerTaskPage() {
                         <td style={{ ...tdStyle, maxWidth: 200, textAlign: 'left' }}>
                           <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: st.remarks ? '#374151' : '#94a3b8', fontSize: 12 }}>{st.remarks || '—'}</span>
                         </td>
-                        <td style={tdStyle}></td>
                       </tr>
                     ))}
                   </>
@@ -874,8 +890,8 @@ export default function ManagerTaskPage() {
       </div>
       <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>{visible.length} task{visible.length !== 1 ? 's' : ''}</div>
 
-      {/* Floating Assign Button (FAB) - bottom right */}
-      {checkedIds.size > 0 && !showModal && (
+      {/* Floating Assign Button - unassigned tab */}
+      {activeTab === 'unassigned' && checkedIds.size > 0 && !showModal && (
         <button
           onClick={() => setShowModal(true)}
           style={{
@@ -894,6 +910,30 @@ export default function ManagerTaskPage() {
             <polyline points="20 6 9 17 4 12"/>
           </svg>
           Assign {checkedIds.size} Task{checkedIds.size > 1 ? 's' : ''}
+        </button>
+      )}
+
+      {/* Floating Revert Button - assigned tab */}
+      {activeTab === 'assigned' && revertIds.size > 0 && (
+        <button
+          onClick={() => setRevertBulk(true)}
+          style={{
+            position: 'fixed', bottom: 32, right: 32, zIndex: 500,
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '14px 24px', borderRadius: 50,
+            background: '#dc2626', color: '#fff', border: 'none',
+            cursor: 'pointer', fontWeight: 700, fontSize: 15,
+            boxShadow: '0 6px 24px rgba(220,38,38,.45)',
+            transition: 'transform .1s, box-shadow .1s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(220,38,38,.55)' }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)';    e.currentTarget.style.boxShadow = '0 6px 24px rgba(220,38,38,.45)' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+          Revert {revertIds.size} Task{revertIds.size > 1 ? 's' : ''}
         </button>
       )}
 
@@ -922,13 +962,13 @@ export default function ManagerTaskPage() {
       )}
 
       {/* Revert Confirm Modal */}
-      {revertTask && (
+      {revertBulk && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,.45)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
         }}>
           <div style={{
-            background: '#fff', borderRadius: 16, padding: '28px 32px', width: 380,
+            background: '#fff', borderRadius: 16, padding: '28px 32px', width: 400,
             boxShadow: '0 20px 60px rgba(0,0,0,.2)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -939,25 +979,28 @@ export default function ManagerTaskPage() {
                 </svg>
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Revert Task?</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>This will move it back to Unassigned</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Revert {revertIds.size} Task{revertIds.size > 1 ? 's' : ''}?</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Selected tasks will move back to Unassigned</div>
               </div>
             </div>
-            <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, color: '#6366f1', fontSize: 13 }}>{revertTask.taskId}</div>
-              <div style={{ fontSize: 12, color: '#374151', marginTop: 2 }}>{revertTask.description}</div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Assigned to: {revertTask.assignedToName || revertTask.assignedTo}</div>
+            <div style={{ background: '#fef2f2', borderRadius: 8, padding: '10px 14px', marginBottom: 20, maxHeight: 160, overflowY: 'auto' }}>
+              {tasks.filter(t => revertIds.has(t.taskId)).map(t => (
+                <div key={t.taskId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: '1px solid #fecaca' }}>
+                  <span style={{ fontWeight: 700, color: '#dc2626', fontSize: 12, minWidth: 70 }}>{t.taskId}</span>
+                  <span style={{ fontSize: 12, color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.assignedToName || t.assignedTo}</span>
+                </div>
+              ))}
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setRevertTask(null)} style={{
+              <button onClick={() => setRevertBulk(false)} style={{
                 flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #e2e8f0',
                 background: '#f8fafc', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer',
               }}>Cancel</button>
-              <button onClick={handleRevert} disabled={reverting} style={{
+              <button onClick={handleBulkRevert} disabled={revertingBulk} style={{
                 flex: 1, padding: '10px', borderRadius: 8, border: 'none',
                 background: '#dc2626', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer',
-                opacity: reverting ? .7 : 1,
-              }}>{reverting ? 'Reverting…' : 'Yes, Revert'}</button>
+                opacity: revertingBulk ? .7 : 1,
+              }}>{revertingBulk ? 'Reverting…' : `Yes, Revert ${revertIds.size}`}</button>
             </div>
           </div>
         </div>
