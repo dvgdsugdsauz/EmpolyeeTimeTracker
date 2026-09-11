@@ -31,6 +31,7 @@ public class AttendanceProcessingService {
     private final DashboardService dashboardService;
 
     @Value("${app.attendance.miss-punch-threshold-ms}") private long missPunchThresholdMs;
+    @Value("${app.attendance.target-hours-ms}")         private long targetHoursMs;
     @Value("${app.attendance.late-after}")              private String lateAfter;
     @Value("${app.attendance.very-late-after}")         private String veryLateAfter;
     @Value("${app.attendance.lunch-start}")             private String lunchStart;
@@ -136,11 +137,11 @@ public class AttendanceProcessingService {
         } else {
             live.setStatus("BREAK");
 
-            // Early logoff notification: after 3 PM, work is 7h–8h19m (less than full day 8h20m)
+            // Early logoff notification: after 3 PM, work is 7h up to target hours
             long worked = live.getTotalWorkMs();
             if (punchTime.toLocalTime().isAfter(LocalTime.of(15, 0))
-                    && worked >= 25_200_000L   // >= 7h
-                    && worked <  34_200_000L) { // <  9h30m (full day threshold)
+                    && worked >= 25_200_000L      // >= 7h
+                    && worked <  targetHoursMs) { // <  target (full day threshold)
                 notificationService.createEarlyLogoffNotification(live.getEmployeeId(), worked);
             }
         }

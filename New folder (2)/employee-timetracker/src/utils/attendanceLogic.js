@@ -14,11 +14,11 @@ export function getLateLabel(lateStatus) {
 }
 
 // Work-hours based day status — auto calculation
-// >= 8h 20m (30,000,000 ms) → Full Day
-// <  8h 20m                 → Short (default)
+// >= 8h 50m (31,800,000 ms) → Full Day
+// <  8h 50m                 → Short (default)
 export function workStatus(workMs) {
   if (!workMs || workMs <= 0) return null
-  if (workMs >= 30000000) return { label: 'Full Day', color: '#059669', bg: '#ecfdf5' }
+  if (workMs >= 31800000) return { label: 'Full Day', color: '#059669', bg: '#ecfdf5' }
   return                         { label: 'Short',    color: '#e11d48', bg: '#fff1f2' }
 }
 
