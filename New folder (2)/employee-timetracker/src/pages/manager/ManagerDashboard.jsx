@@ -326,6 +326,90 @@ function todayStr() {
   return toDateStr(new Date())
 }
 
+const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+const MONTH_LABELS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+
+function MiniCalendar({ value, onSelect, maxDate }) {
+  const valueDate = new Date(value + 'T12:00:00')
+  const [viewYear, setViewYear]   = useState(valueDate.getFullYear())
+  const [viewMonth, setViewMonth] = useState(valueDate.getMonth())
+
+  const firstOfMonth   = new Date(viewYear, viewMonth, 1)
+  const startWeekday   = firstOfMonth.getDay()
+  const daysInMonth    = new Date(viewYear, viewMonth + 1, 0).getDate()
+  const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate()
+  const totalCells     = Math.ceil((startWeekday + daysInMonth) / 7) * 7
+
+  const cells = []
+  for (let i = 0; i < totalCells; i++) {
+    const dayNum = i - startWeekday + 1
+    if (dayNum < 1) {
+      cells.push({ label: daysInPrevMonth + dayNum, otherMonth: true })
+    } else if (dayNum > daysInMonth) {
+      cells.push({ label: dayNum - daysInMonth, otherMonth: true })
+    } else {
+      const dateStr = toDateStr(new Date(viewYear, viewMonth, dayNum))
+      cells.push({
+        label: dayNum,
+        dateStr,
+        isToday: dateStr === todayStr(),
+        isSelected: dateStr === value,
+        isDisabled: maxDate ? dateStr > maxDate : false,
+      })
+    }
+  }
+
+  const goPrevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
+    else setViewMonth(m => m - 1)
+  }
+  const goNextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
+    else setViewMonth(m => m + 1)
+  }
+  const goToday = () => {
+    const t = new Date()
+    setViewYear(t.getFullYear())
+    setViewMonth(t.getMonth())
+    onSelect(todayStr())
+  }
+
+  return (
+    <div className="mini-cal">
+      <div className="mini-cal-head">
+        <span className="mini-cal-month">{MONTH_LABELS[viewMonth]} {viewYear}</span>
+        <div className="mini-cal-nav">
+          <button type="button" className="mini-cal-nav-btn" onClick={goPrevMonth} aria-label="Previous month">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button type="button" className="mini-cal-nav-btn" onClick={goNextMonth} aria-label="Next month">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div className="mini-cal-grid">
+        {WEEKDAY_LABELS.map(w => <div key={w} className="mini-cal-weekday">{w}</div>)}
+        {cells.map((c, i) => c.otherMonth ? (
+          <div key={i} className="mini-cal-day mini-cal-day-muted">{c.label}</div>
+        ) : (
+          <button
+            type="button"
+            key={i}
+            className={`mini-cal-day${c.isSelected ? ' mini-cal-day-selected' : ''}${c.isToday && !c.isSelected ? ' mini-cal-day-today' : ''}`}
+            disabled={c.isDisabled}
+            onClick={() => onSelect(c.dateStr)}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <div className="mini-cal-footer">
+        <button type="button" className="mini-cal-link" onClick={goToday}>Today</button>
+      </div>
+    </div>
+  )
+}
+
 function formatLocalTime(t) {
   if (!t) return null
   const s = Array.isArray(t)
@@ -585,14 +669,7 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
 
             {showDatePicker && (
               <div className="ta-date-popup">
-                <input
-                  type="date"
-                  className="ta-date-popup-input"
-                  value={pendingDate}
-                  max={todayStr()}
-                  onChange={e => setPendingDate(e.target.value)}
-                  autoFocus
-                />
+                <MiniCalendar value={pendingDate} onSelect={setPendingDate} maxDate={todayStr()} />
                 <button className="ta-date-popup-apply" onClick={applyDatePicker}>Apply</button>
               </div>
             )}
