@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { STATUS_META, getLiveWorkTotal, getLiveOutsideTotal, getPendingMs, getOvertimeMs, checkMissPunch, workStatus } from '../../utils/attendanceLogic'
 import { formatTime12, formatDuration, formatDurationHHMMSS } from '../../utils/timeUtils'
 import * as api from '../../services/api'
@@ -356,6 +356,9 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
   const [histData, setHistData]     = useState(null)
   const [histLoading, setHistLoading] = useState(false)
   const [selectedEmp, setSelectedEmp] = useState(null)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [pendingDate, setPendingDate] = useState(selectedDate)
+  const datePickerRef = useRef(null)
 
   const isToday = selectedDate === todayStr()
 
@@ -389,6 +392,28 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
     d.setDate(d.getDate() + 1)
     setSelectedDate(toDateStr(d))
   }
+
+  const openDatePicker = () => {
+    setPendingDate(selectedDate)
+    setShowDatePicker(true)
+  }
+
+  const applyDatePicker = () => {
+    if (pendingDate) setSelectedDate(pendingDate)
+    setShowDatePicker(false)
+  }
+
+  // Close the date-picker popup when clicking outside it
+  useEffect(() => {
+    if (!showDatePicker) return
+    const handleClickOutside = (e) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setShowDatePicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showDatePicker])
 
   const displayDate = new Date(selectedDate + 'T12:00:00')
     .toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: isToday ? undefined : 'numeric' })
@@ -542,17 +567,35 @@ export default function ManagerDashboard({ users, attendance, myAttendance, curr
       {/* Page Header */}
       <div className="ta-header">
         <div className="ta-header-left">
-          <div className="ta-date-nav">
+          <div className="ta-date-nav" ref={datePickerRef} style={{ position: 'relative' }}>
             <button className="ta-nav-btn" onClick={goBack}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
-            <span className="ta-date-label" style={{ minWidth: 90, textAlign: 'center' }}>
+            <span
+              className="ta-date-label"
+              style={{ minWidth: 90, textAlign: 'center', cursor: 'pointer' }}
+              onClick={openDatePicker}
+            >
               {isToday ? `Today, ${displayDate}` : displayDate}
             </span>
             <button className="ta-nav-btn" onClick={goForward}
               style={{ opacity: isToday ? 0.3 : 1, cursor: isToday ? 'default' : 'pointer' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
+
+            {showDatePicker && (
+              <div className="ta-date-popup">
+                <input
+                  type="date"
+                  className="ta-date-popup-input"
+                  value={pendingDate}
+                  max={todayStr()}
+                  onChange={e => setPendingDate(e.target.value)}
+                  autoFocus
+                />
+                <button className="ta-date-popup-apply" onClick={applyDatePicker}>Apply</button>
+              </div>
+            )}
           </div>
           <div className="ta-filters">
             <select className="ta-filter-select" value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
