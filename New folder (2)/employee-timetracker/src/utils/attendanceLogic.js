@@ -54,7 +54,7 @@ export function getLiveOutsideTotal(att, now) {
   return { break: att.breakTotal + att.lunchTotal, lunch: 0 }
 }
 
-const WORK_TARGET_MS = (8 * 3600 + 30 * 60) * 1000  // 8h 30m
+const WORK_TARGET_MS = (8 * 3600 + 50 * 60) * 1000  // 8h 50m
 
 export function getPendingMs(att, now) {
   const worked = getLiveWorkTotal(att, now)
