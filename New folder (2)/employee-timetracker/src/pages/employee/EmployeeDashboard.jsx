@@ -4,7 +4,7 @@ import { formatDurationHHMMSS, formatDuration, formatTime12 } from '../../utils/
 import * as api from '../../services/api'
 
 const USE_API = Boolean(import.meta.env.VITE_API_URL)
-const TARGET_MS = 30600000 // 8h 30m
+const TARGET_MS = 31800000 // 8h 50m
 
 const CHART_COLORS = {
   'Full Day':     'linear-gradient(180deg,#34d399 0%,#059669 100%)',
